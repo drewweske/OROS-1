@@ -55,6 +55,51 @@ function(oros_enable_warnings target_name)
     endif()
 endfunction()
 
+function(
+    oros_add_test_target
+    target_name
+    test_name
+    source_file
+)
+    add_executable(
+        ${target_name}
+    )
+
+    target_sources(
+        ${target_name}
+        PRIVATE
+            ${source_file}
+    )
+
+    target_link_libraries(
+        ${target_name}
+        PRIVATE
+            ${ARGN}
+    )
+
+    target_compile_features(
+        ${target_name}
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        ${target_name}
+    )
+
+    set_target_properties(
+        ${target_name}
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME ${test_name}
+        COMMAND ${target_name}
+    )
+endfunction()
+
 add_library(
     oros_foundation
     STATIC
@@ -79,7 +124,9 @@ target_compile_features(
         cxx_std_23
 )
 
-oros_enable_warnings(oros_foundation)
+oros_enable_warnings(
+    oros_foundation
+)
 
 add_library(
     oros_platform
@@ -119,7 +166,9 @@ target_compile_definitions(
         _UNICODE
 )
 
-oros_enable_warnings(oros_platform)
+oros_enable_warnings(
+    oros_platform
+)
 
 add_library(
     oros_rendering
@@ -161,7 +210,9 @@ target_compile_definitions(
         _UNICODE
 )
 
-oros_enable_warnings(oros_rendering)
+oros_enable_warnings(
+    oros_rendering
+)
 
 add_library(
     oros_runtime
@@ -193,7 +244,9 @@ target_compile_features(
         cxx_std_23
 )
 
-oros_enable_warnings(oros_runtime)
+oros_enable_warnings(
+    oros_runtime
+)
 
 add_library(
     oros_world
@@ -226,9 +279,57 @@ target_compile_features(
         cxx_std_23
 )
 
-oros_enable_warnings(oros_world)
+oros_enable_warnings(
+    oros_world
+)
 
-add_executable(oros_bootstrap)
+add_library(
+    oros_assets
+    STATIC
+)
+
+target_sources(
+    oros_assets
+    PRIVATE
+        engine/assets/src/asset_catalog.cpp
+        engine/assets/src/asset_cook_pipeline.cpp
+        engine/assets/src/asset_cooker_registry.cpp
+        engine/assets/src/asset_hot_reload_pipeline.cpp
+        engine/assets/src/asset_id.cpp
+        engine/assets/src/asset_import_pipeline.cpp
+        engine/assets/src/asset_importer_registry.cpp
+        engine/assets/src/asset_load_pipeline.cpp
+        engine/assets/src/content_hash.cpp
+        engine/assets/src/cooked_asset_cache.cpp
+        engine/assets/src/resource_handle.cpp
+        engine/assets/src/run_length_compression_codec.cpp
+)
+
+target_include_directories(
+    oros_assets
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/assets/include"
+)
+
+target_link_libraries(
+    oros_assets
+    PUBLIC
+        oros_foundation
+)
+
+target_compile_features(
+    oros_assets
+    PUBLIC
+        cxx_std_23
+)
+
+oros_enable_warnings(
+    oros_assets
+)
+
+add_executable(
+    oros_bootstrap
+)
 
 target_sources(
     oros_bootstrap
@@ -260,7 +361,9 @@ target_compile_definitions(
         OROS_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 )
 
-oros_enable_warnings(oros_bootstrap)
+oros_enable_warnings(
+    oros_bootstrap
+)
 
 set_target_properties(
     oros_bootstrap
@@ -273,41 +376,16 @@ set_target_properties(
 include(CTest)
 
 if(BUILD_TESTING)
-    add_executable(oros_foundation_tests)
-
-    target_sources(
+    oros_add_test_target(
         oros_foundation_tests
-        PRIVATE
-            tests/foundation/foundation_tests.cpp
+        oros.foundation
+        tests/foundation/foundation_tests.cpp
+        oros_foundation
     )
 
-    target_link_libraries(
-        oros_foundation_tests
-        PRIVATE
-            oros_foundation
+    add_executable(
+        oros_contract_violation_probe
     )
-
-    target_compile_features(
-        oros_foundation_tests
-        PRIVATE
-            cxx_std_23
-    )
-
-    oros_enable_warnings(oros_foundation_tests)
-
-    set_target_properties(
-        oros_foundation_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
-    )
-
-    add_test(
-        NAME oros.foundation
-        COMMAND oros_foundation_tests
-    )
-
-    add_executable(oros_contract_violation_probe)
 
     target_sources(
         oros_contract_violation_probe
@@ -338,342 +416,186 @@ if(BUILD_TESTING)
                 "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
     )
 
-    add_executable(oros_platform_input_tests)
-
-    target_sources(
+    oros_add_test_target(
         oros_platform_input_tests
-        PRIVATE
-            tests/platform/input_tests.cpp
+        oros.platform.input
+        tests/platform/input_tests.cpp
+        oros_platform
     )
 
-    target_link_libraries(
-        oros_platform_input_tests
-        PRIVATE
-            oros_platform
-    )
-
-    target_compile_features(
-        oros_platform_input_tests
-        PRIVATE
-            cxx_std_23
-    )
-
-    oros_enable_warnings(
-        oros_platform_input_tests
-    )
-
-    set_target_properties(
-        oros_platform_input_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
-    )
-
-    add_test(
-        NAME oros.platform.input
-        COMMAND oros_platform_input_tests
-    )
-
-    add_executable(oros_platform_window_tests)
-
-    target_sources(
+    oros_add_test_target(
         oros_platform_window_tests
-        PRIVATE
-            tests/platform/window_tests.cpp
+        oros.platform.window
+        tests/platform/window_tests.cpp
+        oros_platform
     )
 
-    target_link_libraries(
-        oros_platform_window_tests
-        PRIVATE
-            oros_platform
-    )
-
-    target_compile_features(
-        oros_platform_window_tests
-        PRIVATE
-            cxx_std_23
-    )
-
-    oros_enable_warnings(
-        oros_platform_window_tests
-    )
-
-    set_target_properties(
-        oros_platform_window_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
-    )
-
-    add_test(
-        NAME oros.platform.window
-        COMMAND oros_platform_window_tests
-    )
-
-    add_executable(oros_rendering_renderer_tests)
-
-    target_sources(
+    oros_add_test_target(
         oros_rendering_renderer_tests
-        PRIVATE
-            tests/rendering/renderer_tests.cpp
+        oros.rendering.renderer
+        tests/rendering/renderer_tests.cpp
+        oros_platform
+        oros_rendering
     )
 
-    target_link_libraries(
-        oros_rendering_renderer_tests
-        PRIVATE
-            oros_platform
-            oros_rendering
-    )
-
-    target_compile_features(
-        oros_rendering_renderer_tests
-        PRIVATE
-            cxx_std_23
-    )
-
-    oros_enable_warnings(
-        oros_rendering_renderer_tests
-    )
-
-    set_target_properties(
-        oros_rendering_renderer_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
-    )
-
-    add_test(
-        NAME oros.rendering.renderer
-        COMMAND oros_rendering_renderer_tests
-    )
-
-    add_executable(
+    oros_add_test_target(
         oros_runtime_fixed_step_scheduler_tests
+        oros.runtime.fixed_step_scheduler
+        tests/runtime/fixed_step_scheduler_tests.cpp
+        oros_runtime
     )
 
-    target_sources(
-        oros_runtime_fixed_step_scheduler_tests
-        PRIVATE
-            tests/runtime/fixed_step_scheduler_tests.cpp
-    )
-
-    target_link_libraries(
-        oros_runtime_fixed_step_scheduler_tests
-        PRIVATE
-            oros_runtime
-    )
-
-    target_compile_features(
-        oros_runtime_fixed_step_scheduler_tests
-        PRIVATE
-            cxx_std_23
-    )
-
-    oros_enable_warnings(
-        oros_runtime_fixed_step_scheduler_tests
-    )
-
-    set_target_properties(
-        oros_runtime_fixed_step_scheduler_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
-    )
-
-    add_test(
-        NAME oros.runtime.fixed_step_scheduler
-        COMMAND
-            oros_runtime_fixed_step_scheduler_tests
-    )
-
-    add_executable(
+    oros_add_test_target(
         oros_runtime_engine_runtime_tests
+        oros.runtime.engine_runtime
+        tests/runtime/engine_runtime_tests.cpp
+        oros_runtime
     )
 
-    target_sources(
-        oros_runtime_engine_runtime_tests
-        PRIVATE
-            tests/runtime/engine_runtime_tests.cpp
-    )
-
-    target_link_libraries(
-        oros_runtime_engine_runtime_tests
-        PRIVATE
-            oros_runtime
-    )
-
-    target_compile_features(
-        oros_runtime_engine_runtime_tests
-        PRIVATE
-            cxx_std_23
-    )
-
-    oros_enable_warnings(
-        oros_runtime_engine_runtime_tests
-    )
-
-    set_target_properties(
-        oros_runtime_engine_runtime_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
-    )
-
-    add_test(
-        NAME oros.runtime.engine_runtime
-        COMMAND
-            oros_runtime_engine_runtime_tests
-    )
-
-    add_executable(
+    oros_add_test_target(
         oros_world_entity_id_tests
+        oros.world.entity_id
+        tests/world/entity_id_tests.cpp
+        oros_world
     )
 
-    target_sources(
-        oros_world_entity_id_tests
-        PRIVATE
-            tests/world/entity_id_tests.cpp
-    )
-
-    target_link_libraries(
-        oros_world_entity_id_tests
-        PRIVATE
-            oros_world
-    )
-
-    target_compile_features(
-        oros_world_entity_id_tests
-        PRIVATE
-            cxx_std_23
-    )
-
-    oros_enable_warnings(
-        oros_world_entity_id_tests
-    )
-
-    set_target_properties(
-        oros_world_entity_id_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
-    )
-
-    add_test(
-        NAME oros.world.entity_id
-        COMMAND oros_world_entity_id_tests
-    )
-
-    add_executable(
+    oros_add_test_target(
         oros_world_component_store_tests
+        oros.world.component_store
+        tests/world/component_store_tests.cpp
+        oros_world
     )
 
-    target_sources(
-        oros_world_component_store_tests
-        PRIVATE
-            tests/world/component_store_tests.cpp
-    )
-
-    target_link_libraries(
-        oros_world_component_store_tests
-        PRIVATE
-            oros_world
-    )
-
-    target_compile_features(
-        oros_world_component_store_tests
-        PRIVATE
-            cxx_std_23
-    )
-
-    oros_enable_warnings(
-        oros_world_component_store_tests
-    )
-
-    set_target_properties(
-        oros_world_component_store_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
-    )
-
-    add_test(
-        NAME oros.world.component_store
-        COMMAND oros_world_component_store_tests
-    )
-
-    add_executable(
+    oros_add_test_target(
         oros_world_position_tests
+        oros.world.position
+        tests/world/world_position_tests.cpp
+        oros_world
     )
 
-    target_sources(
-        oros_world_position_tests
-        PRIVATE
-            tests/world/world_position_tests.cpp
-    )
-
-    target_link_libraries(
-        oros_world_position_tests
-        PRIVATE
-            oros_world
-    )
-
-    target_compile_features(
-        oros_world_position_tests
-        PRIVATE
-            cxx_std_23
-    )
-
-    oros_enable_warnings(
-        oros_world_position_tests
-    )
-
-    set_target_properties(
-        oros_world_position_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
-    )
-
-    add_test(
-        NAME oros.world.position
-        COMMAND oros_world_position_tests
-    )
-
-    add_executable(
+    oros_add_test_target(
         oros_world_tests
+        oros.world
+        tests/world/world_tests.cpp
+        oros_world
     )
 
-    target_sources(
-        oros_world_tests
-        PRIVATE
-            tests/world/world_tests.cpp
+    oros_add_test_target(
+        oros_assets_asset_catalog_tests
+        oros.assets.asset_catalog
+        tests/assets/asset_catalog_tests.cpp
+        oros_assets
     )
 
-    target_link_libraries(
-        oros_world_tests
-        PRIVATE
-            oros_world
+    oros_add_test_target(
+        oros_assets_asset_compression_codec_tests
+        oros.assets.asset_compression_codec
+        tests/assets/asset_compression_codec_tests.cpp
+        oros_assets
     )
 
-    target_compile_features(
-        oros_world_tests
-        PRIVATE
-            cxx_std_23
+    oros_add_test_target(
+        oros_assets_asset_cook_pipeline_tests
+        oros.assets.asset_cook_pipeline
+        tests/assets/asset_cook_pipeline_tests.cpp
+        oros_assets
     )
 
-    oros_enable_warnings(
-        oros_world_tests
+    oros_add_test_target(
+        oros_assets_asset_cooker_tests
+        oros.assets.asset_cooker
+        tests/assets/asset_cooker_tests.cpp
+        oros_assets
     )
 
-    set_target_properties(
-        oros_world_tests
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY
-                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    oros_add_test_target(
+        oros_assets_asset_cooker_registry_tests
+        oros.assets.asset_cooker_registry
+        tests/assets/asset_cooker_registry_tests.cpp
+        oros_assets
     )
 
-    add_test(
-        NAME oros.world
-        COMMAND oros_world_tests
+    oros_add_test_target(
+        oros_assets_asset_hot_reload_pipeline_tests
+        oros.assets.asset_hot_reload_pipeline
+        tests/assets/asset_hot_reload_pipeline_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_asset_id_tests
+        oros.assets.asset_id
+        tests/assets/asset_id_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_asset_import_pipeline_tests
+        oros.assets.asset_import_pipeline
+        tests/assets/asset_import_pipeline_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_asset_importer_tests
+        oros.assets.asset_importer
+        tests/assets/asset_importer_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_asset_importer_registry_tests
+        oros.assets.asset_importer_registry
+        tests/assets/asset_importer_registry_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_asset_load_pipeline_tests
+        oros.assets.asset_load_pipeline
+        tests/assets/asset_load_pipeline_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_asset_record_tests
+        oros.assets.asset_record
+        tests/assets/asset_record_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_content_hash_tests
+        oros.assets.content_hash
+        tests/assets/content_hash_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_cooked_asset_cache_tests
+        oros.assets.cooked_asset_cache
+        tests/assets/cooked_asset_cache_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_resource_handle_tests
+        oros.assets.resource_handle
+        tests/assets/resource_handle_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_resource_table_tests
+        oros.assets.resource_table
+        tests/assets/resource_table_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_run_length_compression_codec_tests
+        oros.assets.run_length_compression_codec
+        tests/assets/run_length_compression_codec_tests.cpp
+        oros_assets
     )
 endif()
