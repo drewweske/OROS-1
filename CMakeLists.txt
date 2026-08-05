@@ -163,6 +163,38 @@ target_compile_definitions(
 
 oros_enable_warnings(oros_rendering)
 
+add_library(
+    oros_runtime
+    STATIC
+)
+
+target_sources(
+    oros_runtime
+    PRIVATE
+        engine/runtime/src/engine_runtime.cpp
+        engine/runtime/src/fixed_step_scheduler.cpp
+)
+
+target_include_directories(
+    oros_runtime
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/runtime/include"
+)
+
+target_link_libraries(
+    oros_runtime
+    PUBLIC
+        oros_foundation
+)
+
+target_compile_features(
+    oros_runtime
+    PUBLIC
+        cxx_std_23
+)
+
+oros_enable_warnings(oros_runtime)
+
 add_executable(oros_bootstrap)
 
 target_sources(
@@ -177,6 +209,7 @@ target_link_libraries(
         oros_foundation
         oros_platform
         oros_rendering
+        oros_runtime
 )
 
 target_compile_features(
@@ -378,5 +411,83 @@ if(BUILD_TESTING)
     add_test(
         NAME oros.rendering.renderer
         COMMAND oros_rendering_renderer_tests
+    )
+
+    add_executable(
+        oros_runtime_fixed_step_scheduler_tests
+    )
+
+    target_sources(
+        oros_runtime_fixed_step_scheduler_tests
+        PRIVATE
+            tests/runtime/fixed_step_scheduler_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_runtime_fixed_step_scheduler_tests
+        PRIVATE
+            oros_runtime
+    )
+
+    target_compile_features(
+        oros_runtime_fixed_step_scheduler_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_runtime_fixed_step_scheduler_tests
+    )
+
+    set_target_properties(
+        oros_runtime_fixed_step_scheduler_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.runtime.fixed_step_scheduler
+        COMMAND
+            oros_runtime_fixed_step_scheduler_tests
+    )
+
+    add_executable(
+        oros_runtime_engine_runtime_tests
+    )
+
+    target_sources(
+        oros_runtime_engine_runtime_tests
+        PRIVATE
+            tests/runtime/engine_runtime_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_runtime_engine_runtime_tests
+        PRIVATE
+            oros_runtime
+    )
+
+    target_compile_features(
+        oros_runtime_engine_runtime_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_runtime_engine_runtime_tests
+    )
+
+    set_target_properties(
+        oros_runtime_engine_runtime_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.runtime.engine_runtime
+        COMMAND
+            oros_runtime_engine_runtime_tests
     )
 endif()
