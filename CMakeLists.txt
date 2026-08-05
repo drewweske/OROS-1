@@ -121,6 +121,48 @@ target_compile_definitions(
 
 oros_enable_warnings(oros_platform)
 
+add_library(
+    oros_rendering
+    STATIC
+)
+
+target_sources(
+    oros_rendering
+    PRIVATE
+        engine/rendering/src/d3d12/renderer.cpp
+)
+
+target_include_directories(
+    oros_rendering
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/rendering/include"
+)
+
+target_link_libraries(
+    oros_rendering
+    PUBLIC
+        oros_foundation
+    PRIVATE
+        d3d12
+        dxgi
+        user32
+)
+
+target_compile_features(
+    oros_rendering
+    PUBLIC
+        cxx_std_23
+)
+
+target_compile_definitions(
+    oros_rendering
+    PRIVATE
+        UNICODE
+        _UNICODE
+)
+
+oros_enable_warnings(oros_rendering)
+
 add_executable(oros_bootstrap)
 
 target_sources(
@@ -134,6 +176,7 @@ target_link_libraries(
     PRIVATE
         oros_foundation
         oros_platform
+        oros_rendering
 )
 
 target_compile_features(
@@ -298,5 +341,42 @@ if(BUILD_TESTING)
     add_test(
         NAME oros.platform.window
         COMMAND oros_platform_window_tests
+    )
+
+    add_executable(oros_rendering_renderer_tests)
+
+    target_sources(
+        oros_rendering_renderer_tests
+        PRIVATE
+            tests/rendering/renderer_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_rendering_renderer_tests
+        PRIVATE
+            oros_platform
+            oros_rendering
+    )
+
+    target_compile_features(
+        oros_rendering_renderer_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_rendering_renderer_tests
+    )
+
+    set_target_properties(
+        oros_rendering_renderer_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.rendering.renderer
+        COMMAND oros_rendering_renderer_tests
     )
 endif()
