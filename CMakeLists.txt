@@ -572,6 +572,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_assets_cooked_asset_artifact_tests
+        oros.assets.cooked_asset_artifact
+        tests/assets/cooked_asset_artifact_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
         oros_assets_cooked_asset_cache_tests
         oros.assets.cooked_asset_cache
         tests/assets/cooked_asset_cache_tests.cpp
