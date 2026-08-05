@@ -3,6 +3,7 @@
 #include "oros/platform/window.hpp"
 #include "oros/rendering/renderer.hpp"
 #include "oros/runtime/engine_runtime.hpp"
+#include "oros/world/world.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -17,6 +18,11 @@ namespace oros
     inline constexpr std::string_view engine_name{
         "OROS 1"
     };
+
+    inline constexpr std::uint64_t
+        bootstrap_world_namespace{
+            0x4F524F53ULL
+        };
 
     struct Version final
     {
@@ -38,6 +44,7 @@ int main()
     using namespace oros::platform;
     using namespace oros::rendering;
     using namespace oros::runtime;
+    using namespace oros::world;
 
     Stopwatch startup_timer{};
 
@@ -86,9 +93,189 @@ int main()
     std::cout
         << "OROS-002 Platform: PASS\n";
 
+    Result<World> world_result =
+        World::create(
+            oros::bootstrap_world_namespace);
+
+    if (!world_result.has_value())
+    {
+        const Error& error =
+            world_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "world",
+            "World creation failed: [" +
+                std::string{to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS World creation failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    World world{
+        std::move(world_result.value())
+    };
+
+    Result<EntityId> bootstrap_entity_result =
+        world.create_entity();
+
+    if (!bootstrap_entity_result.has_value())
+    {
+        const Error& error =
+            bootstrap_entity_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "world",
+            "Bootstrap entity creation failed: [" +
+                std::string{to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS bootstrap entity creation failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const EntityId bootstrap_entity =
+        bootstrap_entity_result.value();
+
+    Result<WorldPosition> bootstrap_position_result =
+        WorldPosition::create(
+            WorldCell{
+                1'000'000,
+                0,
+                -1'000'000
+            },
+            LocalPosition{
+                128.0,
+                64.0,
+                -256.0
+            });
+
+    if (!bootstrap_position_result.has_value())
+    {
+        const Error& error =
+            bootstrap_position_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "world",
+            "Bootstrap position creation failed: [" +
+                std::string{to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS bootstrap position creation failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const Status bootstrap_position_status =
+        world.add_position(
+            bootstrap_entity,
+            std::move(
+                bootstrap_position_result.value()));
+
+    if (!bootstrap_position_status.has_value())
+    {
+        const Error& error =
+            bootstrap_position_status.error();
+
+        write_log(
+            LogLevel::critical,
+            "world",
+            "Bootstrap position attachment failed: [" +
+                std::string{to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS bootstrap position attachment failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const WorldPosition* bootstrap_position =
+        world.find_position(
+            bootstrap_entity);
+
+    if (bootstrap_position == nullptr)
+    {
+        write_log(
+            LogLevel::critical,
+            "world",
+            "The bootstrap entity lost its position "
+            "immediately after attachment.");
+
+        std::cerr
+            << "OROS bootstrap entity position could not "
+            << "be found after attachment.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const WorldCell bootstrap_world_cell =
+        bootstrap_position->cell();
+
+    const LocalPosition bootstrap_local_position =
+        bootstrap_position->local();
+
+    write_log(
+        LogLevel::info,
+        "world",
+        "World namespace " +
+            std::to_string(
+                world.world_namespace()) +
+            " initialized with bootstrap entity " +
+            oros::world::to_string(
+                bootstrap_entity) +
+            ".");
+
+    write_log(
+        LogLevel::info,
+        "world",
+        "Bootstrap entity position cell: " +
+            std::to_string(
+                bootstrap_world_cell.x) +
+            ", " +
+            std::to_string(
+                bootstrap_world_cell.y) +
+            ", " +
+            std::to_string(
+                bootstrap_world_cell.z) +
+            ".");
+
     WindowConfig window_config{};
     window_config.title =
-        "OROS 1 - OROS-004 Runtime";
+        "OROS 1 - OROS-005 World";
     window_config.client_width = 1280;
     window_config.client_height = 720;
     window_config.resizable = true;
@@ -290,6 +477,48 @@ int main()
 
                         std::cout
                             << "OROS-004 Runtime: ACTIVE\n";
+
+                        std::cout
+                            << "OROS-005 World: ACTIVE\n";
+
+                        std::cout
+                            << "World namespace: "
+                            << world.world_namespace()
+                            << '\n';
+
+                        std::cout
+                            << "World entities: "
+                            << world.entity_count()
+                            << '\n';
+
+                        std::cout
+                            << "World positions: "
+                            << world.position_count()
+                            << '\n';
+
+                        std::cout
+                            << "Bootstrap entity: "
+                            << oros::world::to_string(
+                                bootstrap_entity)
+                            << '\n';
+
+                        std::cout
+                            << "Bootstrap world cell: "
+                            << bootstrap_world_cell.x
+                            << ", "
+                            << bootstrap_world_cell.y
+                            << ", "
+                            << bootstrap_world_cell.z
+                            << '\n';
+
+                        std::cout
+                            << "Bootstrap local position: "
+                            << bootstrap_local_position.x
+                            << ", "
+                            << bootstrap_local_position.y
+                            << ", "
+                            << bootstrap_local_position.z
+                            << " meters\n";
 
                         std::cout
                             << "Renderer: Direct3D 12\n";
@@ -700,6 +929,13 @@ int main()
                                 << "Completed simulation ticks: "
                                 << completed_ticks
                                 << '\n';
+
+                            std::cout
+                                << "OROS-005 World: "
+                                << world.entity_count()
+                                << " entity, "
+                                << world.position_count()
+                                << " position\n";
                         }
                     }
                 }
@@ -716,6 +952,17 @@ int main()
         LogLevel::info,
         "platform",
         "Native window destroyed cleanly.");
+
+    write_log(
+        LogLevel::info,
+        "world",
+        "World shutting down cleanly with " +
+            std::to_string(
+                world.entity_count()) +
+            " entity and " +
+            std::to_string(
+                world.position_count()) +
+            " position.");
 
     shutdown_logging();
 

@@ -195,6 +195,39 @@ target_compile_features(
 
 oros_enable_warnings(oros_runtime)
 
+add_library(
+    oros_world
+    STATIC
+)
+
+target_sources(
+    oros_world
+    PRIVATE
+        engine/world/src/entity_id.cpp
+        engine/world/src/world.cpp
+        engine/world/src/world_position.cpp
+)
+
+target_include_directories(
+    oros_world
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/world/include"
+)
+
+target_link_libraries(
+    oros_world
+    PUBLIC
+        oros_foundation
+)
+
+target_compile_features(
+    oros_world
+    PUBLIC
+        cxx_std_23
+)
+
+oros_enable_warnings(oros_world)
+
 add_executable(oros_bootstrap)
 
 target_sources(
@@ -210,6 +243,7 @@ target_link_libraries(
         oros_platform
         oros_rendering
         oros_runtime
+        oros_world
 )
 
 target_compile_features(
@@ -489,5 +523,157 @@ if(BUILD_TESTING)
         NAME oros.runtime.engine_runtime
         COMMAND
             oros_runtime_engine_runtime_tests
+    )
+
+    add_executable(
+        oros_world_entity_id_tests
+    )
+
+    target_sources(
+        oros_world_entity_id_tests
+        PRIVATE
+            tests/world/entity_id_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_world_entity_id_tests
+        PRIVATE
+            oros_world
+    )
+
+    target_compile_features(
+        oros_world_entity_id_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_world_entity_id_tests
+    )
+
+    set_target_properties(
+        oros_world_entity_id_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.world.entity_id
+        COMMAND oros_world_entity_id_tests
+    )
+
+    add_executable(
+        oros_world_component_store_tests
+    )
+
+    target_sources(
+        oros_world_component_store_tests
+        PRIVATE
+            tests/world/component_store_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_world_component_store_tests
+        PRIVATE
+            oros_world
+    )
+
+    target_compile_features(
+        oros_world_component_store_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_world_component_store_tests
+    )
+
+    set_target_properties(
+        oros_world_component_store_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.world.component_store
+        COMMAND oros_world_component_store_tests
+    )
+
+    add_executable(
+        oros_world_position_tests
+    )
+
+    target_sources(
+        oros_world_position_tests
+        PRIVATE
+            tests/world/world_position_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_world_position_tests
+        PRIVATE
+            oros_world
+    )
+
+    target_compile_features(
+        oros_world_position_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_world_position_tests
+    )
+
+    set_target_properties(
+        oros_world_position_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.world.position
+        COMMAND oros_world_position_tests
+    )
+
+    add_executable(
+        oros_world_tests
+    )
+
+    target_sources(
+        oros_world_tests
+        PRIVATE
+            tests/world/world_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_world_tests
+        PRIVATE
+            oros_world
+    )
+
+    target_compile_features(
+        oros_world_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_world_tests
+    )
+
+    set_target_properties(
+        oros_world_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.world
+        COMMAND oros_world_tests
     )
 endif()
