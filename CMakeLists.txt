@@ -81,6 +81,46 @@ target_compile_features(
 
 oros_enable_warnings(oros_foundation)
 
+add_library(
+    oros_platform
+    STATIC
+)
+
+target_sources(
+    oros_platform
+    PRIVATE
+        engine/platform/src/windows/window.cpp
+)
+
+target_include_directories(
+    oros_platform
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/include"
+)
+
+target_link_libraries(
+    oros_platform
+    PUBLIC
+        oros_foundation
+    PRIVATE
+        user32
+)
+
+target_compile_features(
+    oros_platform
+    PUBLIC
+        cxx_std_23
+)
+
+target_compile_definitions(
+    oros_platform
+    PRIVATE
+        UNICODE
+        _UNICODE
+)
+
+oros_enable_warnings(oros_platform)
+
 add_executable(oros_bootstrap)
 
 target_sources(
@@ -93,6 +133,7 @@ target_link_libraries(
     oros_bootstrap
     PRIVATE
         oros_foundation
+        oros_platform
 )
 
 target_compile_features(
@@ -185,5 +226,77 @@ if(BUILD_TESTING)
         PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY
                 "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_executable(oros_platform_input_tests)
+
+    target_sources(
+        oros_platform_input_tests
+        PRIVATE
+            tests/platform/input_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_platform_input_tests
+        PRIVATE
+            oros_platform
+    )
+
+    target_compile_features(
+        oros_platform_input_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_platform_input_tests
+    )
+
+    set_target_properties(
+        oros_platform_input_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.platform.input
+        COMMAND oros_platform_input_tests
+    )
+
+    add_executable(oros_platform_window_tests)
+
+    target_sources(
+        oros_platform_window_tests
+        PRIVATE
+            tests/platform/window_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_platform_window_tests
+        PRIVATE
+            oros_platform
+    )
+
+    target_compile_features(
+        oros_platform_window_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_platform_window_tests
+    )
+
+    set_target_properties(
+        oros_platform_window_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.platform.window
+        COMMAND oros_platform_window_tests
     )
 endif()
