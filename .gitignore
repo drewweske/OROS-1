@@ -1,0 +1,30 @@
+# OROS build output
+/out/
+/build/
+
+# OROS generated runtime data
+/cache/
+/logs/
+/saved/
+/assets/cooked/
+
+# Local CMake configuration
+CMakeUserPresets.json
+compile_commands.json
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Compiled files
+*.exe
+*.dll
+*.lib
+*.pdb
+*.ilk
+*.obj
+
+# Windows
+Thumbs.db
+Desktop.ini
