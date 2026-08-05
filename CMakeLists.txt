@@ -16,6 +16,71 @@ option(
     ON
 )
 
+function(oros_enable_warnings target_name)
+    if(MSVC)
+        target_compile_options(
+            ${target_name}
+            PRIVATE
+                /W4
+                /permissive-
+                /Zc:__cplusplus
+                /utf-8
+        )
+
+        if(OROS_WARNINGS_AS_ERRORS)
+            target_compile_options(
+                ${target_name}
+                PRIVATE
+                    /WX
+            )
+        endif()
+    else()
+        target_compile_options(
+            ${target_name}
+            PRIVATE
+                -Wall
+                -Wextra
+                -Wpedantic
+                -Wconversion
+                -Wsign-conversion
+        )
+
+        if(OROS_WARNINGS_AS_ERRORS)
+            target_compile_options(
+                ${target_name}
+                PRIVATE
+                    -Werror
+            )
+        endif()
+    endif()
+endfunction()
+
+add_library(
+    oros_foundation
+    STATIC
+)
+
+target_sources(
+    oros_foundation
+    PRIVATE
+        engine/foundation/src/contract.cpp
+        engine/foundation/src/log.cpp
+)
+
+target_include_directories(
+    oros_foundation
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/foundation/include"
+)
+
+target_compile_features(
+    oros_foundation
+    PUBLIC
+        cxx_std_23
+)
+
+oros_enable_warnings(oros_foundation)
+
 add_executable(oros_bootstrap)
 
 target_sources(
@@ -24,7 +89,17 @@ target_sources(
         apps/bootstrap/main.cpp
 )
 
-target_compile_features(oros_bootstrap PRIVATE cxx_std_23)
+target_link_libraries(
+    oros_bootstrap
+    PRIVATE
+        oros_foundation
+)
+
+target_compile_features(
+    oros_bootstrap
+    PRIVATE
+        cxx_std_23
+)
 
 target_compile_definitions(
     oros_bootstrap
@@ -34,38 +109,81 @@ target_compile_definitions(
         OROS_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 )
 
-if(MSVC)
-    target_compile_options(
-        oros_bootstrap
-        PRIVATE
-            /W4
-            /permissive-
-            /Zc:__cplusplus
-            /utf-8
-    )
-
-    if(OROS_WARNINGS_AS_ERRORS)
-        target_compile_options(oros_bootstrap PRIVATE /WX)
-    endif()
-else()
-    target_compile_options(
-        oros_bootstrap
-        PRIVATE
-            -Wall
-            -Wextra
-            -Wpedantic
-            -Wconversion
-            -Wsign-conversion
-    )
-
-    if(OROS_WARNINGS_AS_ERRORS)
-        target_compile_options(oros_bootstrap PRIVATE -Werror)
-    endif()
-endif()
+oros_enable_warnings(oros_bootstrap)
 
 set_target_properties(
     oros_bootstrap
     PROPERTIES
         OUTPUT_NAME "Oros1"
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+        RUNTIME_OUTPUT_DIRECTORY
+            "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
 )
+
+include(CTest)
+
+if(BUILD_TESTING)
+    add_executable(oros_foundation_tests)
+
+    target_sources(
+        oros_foundation_tests
+        PRIVATE
+            tests/foundation/foundation_tests.cpp
+    )
+
+    target_link_libraries(
+        oros_foundation_tests
+        PRIVATE
+            oros_foundation
+    )
+
+    target_compile_features(
+        oros_foundation_tests
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(oros_foundation_tests)
+
+    set_target_properties(
+        oros_foundation_tests
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+
+    add_test(
+        NAME oros.foundation
+        COMMAND oros_foundation_tests
+    )
+
+    add_executable(oros_contract_violation_probe)
+
+    target_sources(
+        oros_contract_violation_probe
+        PRIVATE
+            tests/foundation/contract_violation_probe.cpp
+    )
+
+    target_link_libraries(
+        oros_contract_violation_probe
+        PRIVATE
+            oros_foundation
+    )
+
+    target_compile_features(
+        oros_contract_violation_probe
+        PRIVATE
+            cxx_std_23
+    )
+
+    oros_enable_warnings(
+        oros_contract_violation_probe
+    )
+
+    set_target_properties(
+        oros_contract_violation_probe
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+    )
+endif()
