@@ -661,6 +661,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_physics_box_box_narrow_phase_tests
+        oros.physics.box_box_narrow_phase
+        tests/physics/box_box_narrow_phase_tests.cpp
+        oros_physics
+    )
+
+    oros_add_test_target(
         oros_assets_asset_catalog_tests
         oros.assets.asset_catalog
         tests/assets/asset_catalog_tests.cpp

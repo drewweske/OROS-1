@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <optional>
 #include <utility>
 #include <variant>
@@ -242,6 +243,270 @@ namespace oros::physics
             }
 
             return selection;
+        }
+
+        enum class BoxContactAxis
+        {
+            x,
+            y,
+            z
+        };
+
+        struct BoxOverlapSelection final
+        {
+            BoxContactAxis axis{
+                BoxContactAxis::x
+            };
+
+            PhysicsScalar half_overlap{};
+            PhysicsVector3 normal{};
+        };
+
+        [[nodiscard]]
+        foundation::Result<
+            std::optional<BoxOverlapSelection>>
+        select_box_overlap(
+            const BoxShape& first_box,
+            const PhysicsVector3 first_center,
+            const BoxShape& second_box,
+            const PhysicsVector3 second_center)
+        {
+            const PhysicsVector3
+                first_half_extents =
+                    first_box.half_extents();
+
+            const PhysicsVector3
+                second_half_extents =
+                    second_box.half_extents();
+
+            const PhysicsVector3
+                half_center_delta =
+                    second_center * 0.5 -
+                    first_center * 0.5;
+
+            if (!half_center_delta.is_finite())
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::
+                        invalid_argument,
+                    "Box center separation exceeds "
+                    "the finite physics range.");
+            }
+
+            const PhysicsScalar
+                half_overlap_x =
+                    first_half_extents.x * 0.5 +
+                    second_half_extents.x * 0.5 -
+                    std::abs(
+                        half_center_delta.x);
+
+            const PhysicsScalar
+                half_overlap_y =
+                    first_half_extents.y * 0.5 +
+                    second_half_extents.y * 0.5 -
+                    std::abs(
+                        half_center_delta.y);
+
+            const PhysicsScalar
+                half_overlap_z =
+                    first_half_extents.z * 0.5 +
+                    second_half_extents.z * 0.5 -
+                    std::abs(
+                        half_center_delta.z);
+
+            if (!std::isfinite(
+                    half_overlap_x) ||
+                !std::isfinite(
+                    half_overlap_y) ||
+                !std::isfinite(
+                    half_overlap_z))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::
+                        invalid_argument,
+                    "Box overlap calculation exceeds "
+                    "the finite physics range.");
+            }
+
+            if (half_overlap_x < 0.0 ||
+                half_overlap_y < 0.0 ||
+                half_overlap_z < 0.0)
+            {
+                return std::optional<
+                    BoxOverlapSelection>{};
+            }
+
+            BoxOverlapSelection selection{
+                BoxContactAxis::x,
+                half_overlap_x,
+                half_center_delta.x < 0.0
+                    ? -physics_positive_x
+                    : physics_positive_x
+            };
+
+            if (half_overlap_y <
+                selection.half_overlap)
+            {
+                selection =
+                    BoxOverlapSelection{
+                        BoxContactAxis::y,
+                        half_overlap_y,
+                        half_center_delta.y < 0.0
+                            ? -physics_positive_y
+                            : physics_positive_y
+                    };
+            }
+
+            if (half_overlap_z <
+                selection.half_overlap)
+            {
+                selection =
+                    BoxOverlapSelection{
+                        BoxContactAxis::z,
+                        half_overlap_z,
+                        half_center_delta.z < 0.0
+                            ? -physics_positive_z
+                            : physics_positive_z
+                    };
+            }
+
+            return std::optional<
+                BoxOverlapSelection>{
+                    selection
+                };
+        }
+
+        [[nodiscard]]
+        foundation::Result<
+            PhysicsVector3>
+        box_contact_point(
+            const AxisAlignedBounds& first_bounds,
+            const AxisAlignedBounds& second_bounds,
+            const BoxOverlapSelection& selection)
+        {
+            const PhysicsVector3 first_minimum =
+                first_bounds.minimum();
+
+            const PhysicsVector3 first_maximum =
+                first_bounds.maximum();
+
+            const PhysicsVector3 second_minimum =
+                second_bounds.minimum();
+
+            const PhysicsVector3 second_maximum =
+                second_bounds.maximum();
+
+            const PhysicsVector3
+                intersection_minimum{
+                    std::max(
+                        first_minimum.x,
+                        second_minimum.x),
+                    std::max(
+                        first_minimum.y,
+                        second_minimum.y),
+                    std::max(
+                        first_minimum.z,
+                        second_minimum.z)
+                };
+
+            const PhysicsVector3
+                intersection_maximum{
+                    std::min(
+                        first_maximum.x,
+                        second_maximum.x),
+                    std::min(
+                        first_maximum.y,
+                        second_maximum.y),
+                    std::min(
+                        first_maximum.z,
+                        second_maximum.z)
+                };
+
+            PhysicsVector3 point{
+                std::midpoint(
+                    intersection_minimum.x,
+                    intersection_maximum.x),
+                std::midpoint(
+                    intersection_minimum.y,
+                    intersection_maximum.y),
+                std::midpoint(
+                    intersection_minimum.z,
+                    intersection_maximum.z)
+            };
+
+            switch (selection.axis)
+            {
+            case BoxContactAxis::x:
+            {
+                const PhysicsScalar first_surface =
+                    selection.normal.x > 0.0
+                        ? first_maximum.x
+                        : first_minimum.x;
+
+                const PhysicsScalar second_surface =
+                    selection.normal.x > 0.0
+                        ? second_minimum.x
+                        : second_maximum.x;
+
+                point.x =
+                    std::midpoint(
+                        first_surface,
+                        second_surface);
+
+                break;
+            }
+
+            case BoxContactAxis::y:
+            {
+                const PhysicsScalar first_surface =
+                    selection.normal.y > 0.0
+                        ? first_maximum.y
+                        : first_minimum.y;
+
+                const PhysicsScalar second_surface =
+                    selection.normal.y > 0.0
+                        ? second_minimum.y
+                        : second_maximum.y;
+
+                point.y =
+                    std::midpoint(
+                        first_surface,
+                        second_surface);
+
+                break;
+            }
+
+            case BoxContactAxis::z:
+            {
+                const PhysicsScalar first_surface =
+                    selection.normal.z > 0.0
+                        ? first_maximum.z
+                        : first_minimum.z;
+
+                const PhysicsScalar second_surface =
+                    selection.normal.z > 0.0
+                        ? second_minimum.z
+                        : second_maximum.z;
+
+                point.z =
+                    std::midpoint(
+                        first_surface,
+                        second_surface);
+
+                break;
+            }
+            }
+
+            if (!point.is_finite())
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::
+                        invalid_argument,
+                    "Box contact point exceeds the "
+                    "finite physics range.");
+            }
+
+            return point;
         }
     }
 
@@ -709,6 +974,160 @@ namespace oros::physics
             pair,
             contact_point,
             canonical_normal_result.value(),
+            penetration_depth);
+    }
+
+    foundation::Result<
+        std::optional<CollisionContact>>
+    generate_box_box_contact(
+        const ColliderGeometry& first_geometry,
+        const ColliderGeometry& second_geometry)
+    {
+        const auto pair_result =
+            BroadPhasePair::create(
+                first_geometry.collider(),
+                second_geometry.collider());
+
+        if (!pair_result.has_value())
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_argument,
+                "Box contact generation requires "
+                "two distinct persistent collider "
+                "identities.");
+        }
+
+        if (!std::holds_alternative<
+                BoxShape>(
+                first_geometry.shape()) ||
+            !std::holds_alternative<
+                BoxShape>(
+                second_geometry.shape()))
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_argument,
+                "Box contact generation requires "
+                "two box shapes.");
+        }
+
+        const BroadPhasePair pair =
+            pair_result.value();
+
+        const ColliderGeometry*
+            canonical_first =
+                &first_geometry;
+
+        const ColliderGeometry*
+            canonical_second =
+                &second_geometry;
+
+        if (canonical_first->collider() !=
+            pair.first_collider())
+        {
+            std::swap(
+                canonical_first,
+                canonical_second);
+        }
+
+        const BoxShape& first_box =
+            std::get<BoxShape>(
+                canonical_first->shape());
+
+        const BoxShape& second_box =
+            std::get<BoxShape>(
+                canonical_second->shape());
+
+        const auto overlap_result =
+            select_box_overlap(
+                first_box,
+                canonical_first->center(),
+                second_box,
+                canonical_second->center());
+
+        if (!overlap_result.has_value())
+        {
+            return foundation::fail(
+                overlap_result.error().code,
+                overlap_result.error().message);
+        }
+
+        if (!overlap_result.value().has_value())
+        {
+            return
+                std::optional<
+                    CollisionContact>{};
+        }
+
+        const BoxOverlapSelection selection =
+            overlap_result.value().value();
+
+        const PhysicsScalar penetration_depth =
+            selection.half_overlap *
+            2.0;
+
+        if (!std::isfinite(
+                penetration_depth) ||
+            penetration_depth <
+                0.0)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_argument,
+                "Box contact penetration depth "
+                "exceeds the finite physics "
+                "range.");
+        }
+
+        const auto first_bounds_result =
+            canonical_first->bounds();
+
+        const auto second_bounds_result =
+            canonical_second->bounds();
+
+        if (!first_bounds_result.has_value())
+        {
+            return foundation::fail(
+                first_bounds_result.error().code,
+                first_bounds_result.error().message);
+        }
+
+        if (!second_bounds_result.has_value())
+        {
+            return foundation::fail(
+                second_bounds_result.error().code,
+                second_bounds_result.error().message);
+        }
+
+        const auto point_result =
+            box_contact_point(
+                first_bounds_result.value(),
+                second_bounds_result.value(),
+                selection);
+
+        if (!point_result.has_value())
+        {
+            return foundation::fail(
+                point_result.error().code,
+                point_result.error().message);
+        }
+
+        const auto normal_result =
+            PhysicsUnitVector3::create(
+                selection.normal);
+
+        if (!normal_result.has_value())
+        {
+            return foundation::fail(
+                normal_result.error().code,
+                normal_result.error().message);
+        }
+
+        return create_optional_contact(
+            pair,
+            point_result.value(),
+            normal_result.value(),
             penetration_depth);
     }
 }
