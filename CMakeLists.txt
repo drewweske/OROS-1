@@ -302,6 +302,7 @@ target_sources(
         engine/assets/src/content_hash.cpp
         engine/assets/src/cooked_asset_artifact_pipeline.cpp
         engine/assets/src/cooked_asset_artifact_serialization.cpp
+        engine/assets/src/cooked_asset_artifact_store.cpp
         engine/assets/src/cooked_asset_cache.cpp
         engine/assets/src/resource_handle.cpp
         engine/assets/src/run_length_compression_codec.cpp
@@ -591,6 +592,13 @@ if(BUILD_TESTING)
         oros_assets_cooked_asset_artifact_serialization_tests
         oros.assets.cooked_asset_artifact_serialization
         tests/assets/cooked_asset_artifact_serialization_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_cooked_asset_artifact_store_tests
+        oros.assets.cooked_asset_artifact_store
+        tests/assets/cooked_asset_artifact_store_tests.cpp
         oros_assets
     )
 
