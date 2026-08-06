@@ -7,6 +7,8 @@ project(
     LANGUAGES CXX
 )
 
+find_package(Threads REQUIRED)
+
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -340,6 +342,9 @@ add_library(
 target_sources(
     oros_streaming
     PRIVATE
+        engine/streaming/src/world_cell_io_request.cpp
+        engine/streaming/src/world_cell_io_service.cpp
+        engine/streaming/src/world_cell_io_shared_state.cpp
         engine/streaming/src/world_cell_key.cpp
         engine/streaming/src/world_cell_revision_id.cpp
         engine/streaming/src/world_cell_snapshot.cpp
@@ -359,6 +364,8 @@ target_link_libraries(
     PUBLIC
         oros_foundation
         oros_world
+    PRIVATE
+        Threads::Threads
 )
 
 target_compile_features(
@@ -732,5 +739,18 @@ if(BUILD_TESTING)
         oros.streaming.world_cell_persistence_store
         tests/streaming/world_cell_persistence_store_tests.cpp
         oros_streaming
+    )
+
+    oros_add_test_target(
+        oros_streaming_world_cell_io_service_tests
+        oros.streaming.world_cell_io_service
+        tests/streaming/world_cell_io_service_tests.cpp
+        oros_streaming
+    )
+
+    target_include_directories(
+        oros_streaming_world_cell_io_service_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/engine/streaming/src"
     )
 endif()
