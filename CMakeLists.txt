@@ -293,6 +293,7 @@ add_library(
 target_sources(
     oros_physics
     PRIVATE
+        engine/physics/src/collider_id.cpp
         engine/physics/src/physics_vector.cpp
 )
 
@@ -306,6 +307,7 @@ target_link_libraries(
     oros_physics
     PUBLIC
         oros_foundation
+        oros_world
 )
 
 target_compile_features(
@@ -569,6 +571,13 @@ if(BUILD_TESTING)
         oros_physics_vector_tests
         oros.physics.vector
         tests/physics/physics_vector_tests.cpp
+        oros_physics
+    )
+
+    oros_add_test_target(
+        oros_physics_collider_id_tests
+        oros.physics.collider_id
+        tests/physics/collider_id_tests.cpp
         oros_physics
     )
 
