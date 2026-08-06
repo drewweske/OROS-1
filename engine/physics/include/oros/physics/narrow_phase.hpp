@@ -28,4 +28,11 @@ namespace oros::physics
     generate_box_box_contact(
         const ColliderGeometry& first_geometry,
         const ColliderGeometry& second_geometry);
+
+    [[nodiscard]]
+    foundation::Result<
+        std::optional<CollisionContact>>
+    generate_sphere_capsule_contact(
+        const ColliderGeometry& first_geometry,
+        const ColliderGeometry& second_geometry);
 }
