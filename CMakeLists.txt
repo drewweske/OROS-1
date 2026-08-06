@@ -297,6 +297,7 @@ target_sources(
         engine/physics/src/broad_phase.cpp
         engine/physics/src/broad_phase_pair.cpp
         engine/physics/src/broad_phase_proxy.cpp
+        engine/physics/src/collider_geometry.cpp
         engine/physics/src/collider_id.cpp
         engine/physics/src/collision_contact.cpp
         engine/physics/src/collision_shape.cpp
@@ -585,6 +586,13 @@ if(BUILD_TESTING)
         oros_physics_collider_id_tests
         oros.physics.collider_id
         tests/physics/collider_id_tests.cpp
+        oros_physics
+    )
+
+    oros_add_test_target(
+        oros_physics_collider_geometry_tests
+        oros.physics.collider_geometry
+        tests/physics/collider_geometry_tests.cpp
         oros_physics
     )
 
