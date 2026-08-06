@@ -297,6 +297,7 @@ target_sources(
         engine/physics/src/broad_phase.cpp
         engine/physics/src/broad_phase_pair.cpp
         engine/physics/src/broad_phase_proxy.cpp
+        engine/physics/src/capsule_box_narrow_phase.cpp
         engine/physics/src/collider_geometry.cpp
         engine/physics/src/collider_id.cpp
         engine/physics/src/collision_contact.cpp
@@ -672,6 +673,13 @@ if(BUILD_TESTING)
         oros_physics_sphere_capsule_narrow_phase_tests
         oros.physics.sphere_capsule_narrow_phase
         tests/physics/sphere_capsule_narrow_phase_tests.cpp
+        oros_physics
+    )
+
+    oros_add_test_target(
+        oros_physics_capsule_box_narrow_phase_tests
+        oros.physics.capsule_box_narrow_phase
+        tests/physics/capsule_box_narrow_phase_tests.cpp
         oros_physics
     )
 
