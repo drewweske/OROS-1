@@ -332,6 +332,40 @@ oros_enable_warnings(
     oros_assets
 )
 
+add_library(
+    oros_streaming
+    STATIC
+)
+
+target_sources(
+    oros_streaming
+    PRIVATE
+        engine/streaming/src/world_cell_key.cpp
+)
+
+target_include_directories(
+    oros_streaming
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/streaming/include"
+)
+
+target_link_libraries(
+    oros_streaming
+    PUBLIC
+        oros_foundation
+        oros_world
+)
+
+target_compile_features(
+    oros_streaming
+    PUBLIC
+        cxx_std_23
+)
+
+oros_enable_warnings(
+    oros_streaming
+)
+
 add_executable(
     oros_bootstrap
 )
@@ -658,5 +692,12 @@ if(BUILD_TESTING)
         oros.assets.run_length_compression_codec
         tests/assets/run_length_compression_codec_tests.cpp
         oros_assets
+    )
+
+    oros_add_test_target(
+        oros_streaming_world_cell_key_tests
+        oros.streaming.world_cell_key
+        tests/streaming/world_cell_key_tests.cpp
+        oros_streaming
     )
 endif()
