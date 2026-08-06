@@ -346,11 +346,12 @@ target_sources(
         engine/streaming/src/world_cell_io_service.cpp
         engine/streaming/src/world_cell_io_shared_state.cpp
         engine/streaming/src/world_cell_key.cpp
+        engine/streaming/src/world_cell_persistence_format.cpp
+        engine/streaming/src/world_cell_persistence_store.cpp
+        engine/streaming/src/world_cell_residency.cpp
         engine/streaming/src/world_cell_revision_id.cpp
         engine/streaming/src/world_cell_snapshot.cpp
         engine/streaming/src/world_cell_snapshot_manifest.cpp
-        engine/streaming/src/world_cell_persistence_format.cpp
-        engine/streaming/src/world_cell_persistence_store.cpp
 )
 
 target_include_directories(
@@ -752,5 +753,12 @@ if(BUILD_TESTING)
         oros_streaming_world_cell_io_service_tests
         PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/engine/streaming/src"
+    )
+
+    oros_add_test_target(
+        oros_streaming_world_cell_residency_tests
+        oros.streaming.world_cell_residency
+        tests/streaming/world_cell_residency_tests.cpp
+        oros_streaming
     )
 endif()
