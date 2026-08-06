@@ -299,6 +299,7 @@ target_sources(
         engine/assets/src/asset_import_pipeline.cpp
         engine/assets/src/asset_importer_registry.cpp
         engine/assets/src/asset_load_pipeline.cpp
+        engine/assets/src/binary_asset_importer.cpp
         engine/assets/src/content_hash.cpp
         engine/assets/src/cooked_asset_artifact_pipeline.cpp
         engine/assets/src/cooked_asset_artifact_serialization.cpp
@@ -564,6 +565,13 @@ if(BUILD_TESTING)
         oros_assets_asset_record_tests
         oros.assets.asset_record
         tests/assets/asset_record_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
+        oros_assets_binary_asset_importer_tests
+        oros.assets.binary_asset_importer
+        tests/assets/binary_asset_importer_tests.cpp
         oros_assets
     )
 
