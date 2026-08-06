@@ -761,4 +761,11 @@ if(BUILD_TESTING)
         tests/streaming/world_cell_residency_tests.cpp
         oros_streaming
     )
+
+    oros_add_test_target(
+        oros_streaming_world_cell_streaming_policy_tests
+        oros.streaming.world_cell_streaming_policy
+        tests/streaming/world_cell_streaming_policy_tests.cpp
+        oros_streaming
+    )
 endif()
