@@ -30,6 +30,52 @@ namespace oros::physics
                 value.y >= 0.0 &&
                 value.z >= 0.0;
         }
+
+        [[nodiscard]]
+        bool preserves_centered_extent(
+            const PhysicsScalar center,
+            const PhysicsScalar half_extent,
+            const PhysicsScalar minimum,
+            const PhysicsScalar maximum)
+            noexcept
+        {
+            if (half_extent == 0.0)
+            {
+                return
+                    minimum == center &&
+                    maximum == center;
+            }
+
+            return
+                minimum < center &&
+                maximum > center;
+        }
+
+        [[nodiscard]]
+        bool preserves_centered_extents(
+            const PhysicsVector3 center,
+            const PhysicsVector3 half_extents,
+            const PhysicsVector3 minimum,
+            const PhysicsVector3 maximum)
+            noexcept
+        {
+            return
+                preserves_centered_extent(
+                    center.x,
+                    half_extents.x,
+                    minimum.x,
+                    maximum.x) &&
+                preserves_centered_extent(
+                    center.y,
+                    half_extents.y,
+                    minimum.y,
+                    maximum.y) &&
+                preserves_centered_extent(
+                    center.z,
+                    half_extents.z,
+                    minimum.z,
+                    maximum.z);
+        }
     }
 
     AxisAlignedBounds::
@@ -119,6 +165,20 @@ namespace oros::physics
                     invalid_argument,
                 "Bounds center and half extents "
                 "exceed the finite physics range.");
+        }
+
+        if (!preserves_centered_extents(
+                center,
+                half_extents,
+                minimum,
+                maximum))
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_argument,
+                "Bounds half extents cannot be "
+                "represented at the requested "
+                "center.");
         }
 
         return AxisAlignedBounds{

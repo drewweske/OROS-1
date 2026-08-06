@@ -296,6 +296,7 @@ target_sources(
         engine/physics/src/axis_aligned_bounds.cpp
         engine/physics/src/collider_id.cpp
         engine/physics/src/collision_shape.cpp
+        engine/physics/src/collision_shape_bounds.cpp
         engine/physics/src/physics_vector.cpp
 )
 
@@ -594,6 +595,13 @@ if(BUILD_TESTING)
         oros_physics_axis_aligned_bounds_tests
         oros.physics.axis_aligned_bounds
         tests/physics/axis_aligned_bounds_tests.cpp
+        oros_physics
+    )
+
+    oros_add_test_target(
+        oros_physics_collision_shape_bounds_tests
+        oros.physics.collision_shape_bounds
+        tests/physics/collision_shape_bounds_tests.cpp
         oros_physics
     )
 
