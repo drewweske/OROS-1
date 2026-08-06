@@ -294,6 +294,7 @@ target_sources(
     oros_physics
     PRIVATE
         engine/physics/src/collider_id.cpp
+        engine/physics/src/collision_shape.cpp
         engine/physics/src/physics_vector.cpp
 )
 
@@ -578,6 +579,13 @@ if(BUILD_TESTING)
         oros_physics_collider_id_tests
         oros.physics.collider_id
         tests/physics/collider_id_tests.cpp
+        oros_physics
+    )
+
+    oros_add_test_target(
+        oros_physics_collision_shape_tests
+        oros.physics.collision_shape
+        tests/physics/collision_shape_tests.cpp
         oros_physics
     )
 
