@@ -341,6 +341,7 @@ target_sources(
     oros_streaming
     PRIVATE
         engine/streaming/src/world_cell_key.cpp
+        engine/streaming/src/world_cell_snapshot.cpp
 )
 
 target_include_directories(
@@ -698,6 +699,13 @@ if(BUILD_TESTING)
         oros_streaming_world_cell_key_tests
         oros.streaming.world_cell_key
         tests/streaming/world_cell_key_tests.cpp
+        oros_streaming
+    )
+
+    oros_add_test_target(
+        oros_streaming_world_cell_snapshot_tests
+        oros.streaming.world_cell_snapshot
+        tests/streaming/world_cell_snapshot_tests.cpp
         oros_streaming
     )
 endif()
