@@ -286,6 +286,39 @@ oros_enable_warnings(
 )
 
 add_library(
+    oros_physics
+    STATIC
+)
+
+target_sources(
+    oros_physics
+    PRIVATE
+        engine/physics/src/physics_vector.cpp
+)
+
+target_include_directories(
+    oros_physics
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/physics/include"
+)
+
+target_link_libraries(
+    oros_physics
+    PUBLIC
+        oros_foundation
+)
+
+target_compile_features(
+    oros_physics
+    PUBLIC
+        cxx_std_23
+)
+
+oros_enable_warnings(
+    oros_physics
+)
+
+add_library(
     oros_assets
     STATIC
 )
@@ -530,6 +563,13 @@ if(BUILD_TESTING)
         oros.world
         tests/world/world_tests.cpp
         oros_world
+    )
+
+    oros_add_test_target(
+        oros_physics_vector_tests
+        oros.physics.vector
+        tests/physics/physics_vector_tests.cpp
+        oros_physics
     )
 
     oros_add_test_target(
