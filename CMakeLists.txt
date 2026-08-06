@@ -584,6 +584,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_assets_binary_asset_pipeline_tests
+        oros.assets.binary_asset_pipeline
+        tests/assets/binary_asset_pipeline_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
         oros_assets_content_hash_tests
         oros.assets.content_hash
         tests/assets/content_hash_tests.cpp
