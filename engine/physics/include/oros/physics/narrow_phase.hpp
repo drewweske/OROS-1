@@ -14,4 +14,11 @@ namespace oros::physics
     generate_sphere_sphere_contact(
         const ColliderGeometry& first_geometry,
         const ColliderGeometry& second_geometry);
+
+    [[nodiscard]]
+    foundation::Result<
+        std::optional<CollisionContact>>
+    generate_sphere_box_contact(
+        const ColliderGeometry& first_geometry,
+        const ColliderGeometry& second_geometry);
 }
