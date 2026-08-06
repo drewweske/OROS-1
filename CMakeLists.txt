@@ -294,6 +294,7 @@ target_sources(
     oros_physics
     PRIVATE
         engine/physics/src/axis_aligned_bounds.cpp
+        engine/physics/src/broad_phase.cpp
         engine/physics/src/broad_phase_pair.cpp
         engine/physics/src/broad_phase_proxy.cpp
         engine/physics/src/collider_id.cpp
@@ -604,6 +605,13 @@ if(BUILD_TESTING)
         oros_physics_collision_shape_bounds_tests
         oros.physics.collision_shape_bounds
         tests/physics/collision_shape_bounds_tests.cpp
+        oros_physics
+    )
+
+    oros_add_test_target(
+        oros_physics_broad_phase_tests
+        oros.physics.broad_phase
+        tests/physics/broad_phase_tests.cpp
         oros_physics
     )
 
