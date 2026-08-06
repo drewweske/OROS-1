@@ -556,6 +556,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_assets_asset_lifecycle_tests
+        oros.assets.asset_lifecycle
+        tests/assets/asset_lifecycle_tests.cpp
+        oros_assets
+    )
+
+    oros_add_test_target(
         oros_assets_asset_load_pipeline_tests
         oros.assets.asset_load_pipeline
         tests/assets/asset_load_pipeline_tests.cpp
