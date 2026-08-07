@@ -427,6 +427,42 @@ oros_enable_warnings(
     oros_streaming
 )
 
+add_library(
+    oros_physical_world
+    STATIC
+)
+
+target_sources(
+    oros_physical_world
+    PRIVATE
+        engine/physical_world/src/world_cell_collider_set.cpp
+)
+
+target_include_directories(
+    oros_physical_world
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/physical_world/include"
+)
+
+target_link_libraries(
+    oros_physical_world
+    PUBLIC
+        oros_foundation
+        oros_physics
+        oros_streaming
+        oros_world
+)
+
+target_compile_features(
+    oros_physical_world
+    PUBLIC
+        cxx_std_23
+)
+
+oros_enable_warnings(
+    oros_physical_world
+)
+
 add_executable(
     oros_bootstrap
 )
@@ -941,5 +977,12 @@ if(BUILD_TESTING)
         oros.streaming.world_cell_streaming_lifecycle
         tests/streaming/world_cell_streaming_lifecycle_tests.cpp
         oros_streaming
+    )
+
+    oros_add_test_target(
+        oros_physical_world_world_cell_collider_set_tests
+        oros.physical_world.world_cell_collider_set
+        tests/physical_world/world_cell_collider_set_tests.cpp
+        oros_physical_world
     )
 endif()
