@@ -163,6 +163,46 @@ int main()
         1U
     };
 
+    const ColliderId transition_floor_id{
+        EntityId{
+            world_namespace,
+            400ULL
+        },
+        1U
+    };
+
+    const ColliderId steep_obstacle_id{
+        EntityId{
+            world_namespace,
+            500ULL
+        },
+        1U
+    };
+
+    const ColliderId guard_wall_id{
+        EntityId{
+            world_namespace,
+            600ULL
+        },
+        1U
+    };
+
+    const ColliderId guard_floor_id{
+        EntityId{
+            world_namespace,
+            650ULL
+        },
+        1U
+    };
+
+    const ColliderId ledge_floor_id{
+        EntityId{
+            world_namespace,
+            700ULL
+        },
+        1U
+    };
+
     const auto capsule_shape_result =
         CapsuleShape::create(
             1.0,
@@ -279,7 +319,34 @@ int main()
         WorldPosition::create(
             WorldCell{},
             LocalPosition{
-                100.0,
+                120.0,
+                0.0,
+                0.0
+            });
+
+    const auto steep_transition_start_result =
+        WorldPosition::create(
+            WorldCell{},
+            LocalPosition{
+                58.0,
+                0.0,
+                0.0
+            });
+
+    const auto guard_wall_start_result =
+        WorldPosition::create(
+            WorldCell{},
+            LocalPosition{
+                78.0,
+                0.0,
+                0.0
+            });
+
+    const auto ledge_start_result =
+        WorldPosition::create(
+            WorldCell{},
+            LocalPosition{
+                98.0,
                 0.0,
                 0.0
             });
@@ -289,13 +356,19 @@ int main()
         flat_start_result.has_value() &&
             slope_start_result.has_value() &&
             x_support_start_result.has_value() &&
-            unsupported_start_result.has_value(),
+            unsupported_start_result.has_value() &&
+            steep_transition_start_result.has_value() &&
+            guard_wall_start_result.has_value() &&
+            ledge_start_result.has_value(),
         "Ground-motion world positions are created");
 
     if (!flat_start_result.has_value() ||
         !slope_start_result.has_value() ||
         !x_support_start_result.has_value() ||
-        !unsupported_start_result.has_value())
+        !unsupported_start_result.has_value() ||
+        !steep_transition_start_result.has_value() ||
+        !guard_wall_start_result.has_value() ||
+        !ledge_start_result.has_value())
     {
         return finish(state);
     }
@@ -330,6 +403,56 @@ int main()
                 0.0
             });
 
+    const auto transition_floor_geometry_result =
+        ColliderGeometry::create(
+            transition_floor_id,
+            floor_shape_result.value(),
+            PhysicsVector3{
+                60.0,
+                -2.5,
+                0.0
+            });
+
+    const auto steep_obstacle_geometry_result =
+        ColliderGeometry::create(
+            steep_obstacle_id,
+            slope_shape_result.value(),
+            PhysicsVector3{
+                61.9,
+                -1.7,
+                0.0
+            });
+
+    const auto guard_wall_geometry_result =
+        ColliderGeometry::create(
+            guard_wall_id,
+            wall_shape_result.value(),
+            PhysicsVector3{
+                80.5,
+                0.0,
+                0.0
+            });
+
+    const auto guard_floor_geometry_result =
+        ColliderGeometry::create(
+            guard_floor_id,
+            floor_shape_result.value(),
+            PhysicsVector3{
+                80.0,
+                -2.5,
+                0.0
+            });
+
+    const auto ledge_floor_geometry_result =
+        ColliderGeometry::create(
+            ledge_floor_id,
+            floor_shape_result.value(),
+            PhysicsVector3{
+                96.0,
+                -2.5,
+                0.0
+            });
+
     check(
         state,
         floor_geometry_result.has_value(),
@@ -345,9 +468,39 @@ int main()
         x_support_geometry_result.has_value(),
         "Ground-motion positive-X support is created");
 
+    check(
+        state,
+        transition_floor_geometry_result.has_value(),
+        "Steep-transition floor geometry is created");
+
+    check(
+        state,
+        steep_obstacle_geometry_result.has_value(),
+        "Steep-transition obstacle geometry is created");
+
+    check(
+        state,
+        guard_wall_geometry_result.has_value(),
+        "Steep-guard vertical wall geometry is created");
+
+    check(
+        state,
+        guard_floor_geometry_result.has_value(),
+        "Steep-guard vertical wall floor geometry is created");
+
+    check(
+        state,
+        ledge_floor_geometry_result.has_value(),
+        "Steep-guard ledge floor geometry is created");
+
     if (!floor_geometry_result.has_value() ||
         !slope_geometry_result.has_value() ||
-        !x_support_geometry_result.has_value())
+        !x_support_geometry_result.has_value() ||
+        !transition_floor_geometry_result.has_value() ||
+        !steep_obstacle_geometry_result.has_value() ||
+        !guard_wall_geometry_result.has_value() ||
+        !guard_floor_geometry_result.has_value() ||
+        !ledge_floor_geometry_result.has_value())
     {
         return finish(state);
     }
@@ -359,11 +512,16 @@ int main()
 
     const std::array<
         ColliderGeometry,
-        3U>
+        8U>
         colliders{
             floor_geometry_result.value(),
             slope_geometry_result.value(),
-            x_support_geometry_result.value()
+            x_support_geometry_result.value(),
+            transition_floor_geometry_result.value(),
+            steep_obstacle_geometry_result.value(),
+            guard_wall_geometry_result.value(),
+            guard_floor_geometry_result.value(),
+            ledge_floor_geometry_result.value()
         };
 
     const auto collider_set_result =
@@ -455,7 +613,7 @@ int main()
         state,
         registry.is_valid() &&
             registry.collider_count() ==
-                3U,
+                8U,
         "Ground-motion registry is valid");
 
     const auto non_finite_result =
@@ -914,6 +1072,285 @@ int main()
                 contains(
                     x_support_id),
         "Positive-X traversal remains grounded");
+
+    const auto steep_transition_initial_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            steep_transition_start_result.value(),
+            y_settings_result.value());
+
+    check(
+        state,
+        steep_transition_initial_ground_result.
+                has_value() &&
+            steep_transition_initial_ground_result.
+                value().
+                has_value() &&
+            steep_transition_initial_ground_result.
+                value()->
+                pair().
+                contains(
+                    transition_floor_id),
+        "Steep-transition start is grounded on its flat floor");
+
+    const auto steep_transition_result =
+        move_world_capsule_along_ground(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            steep_transition_start_result.value(),
+            WorldDisplacement{
+                3.0,
+                0.0,
+                0.0
+            },
+            y_settings_result.value(),
+            0.1,
+            64U,
+            4U);
+
+    check(
+        state,
+        steep_transition_result.has_value(),
+        "Steep-transition grounded motion succeeds");
+
+    if (!steep_transition_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto steep_transition_displacement_result =
+        steep_transition_start_result.
+            value().
+            displacement_to(
+                steep_transition_result.value());
+
+    check(
+        state,
+        steep_transition_displacement_result.
+            has_value(),
+        "Steep-transition displacement can be measured");
+
+    check(
+        state,
+        steep_transition_displacement_result.
+                has_value() &&
+            steep_transition_displacement_result.
+                value().
+                x >
+                0.0 &&
+            steep_transition_displacement_result.
+                value().
+                x <
+                3.0 &&
+            nearly_equal(
+                steep_transition_displacement_result.
+                    value().
+                    y,
+                0.0) &&
+            nearly_equal(
+                steep_transition_displacement_result.
+                    value().
+                    z,
+                0.0),
+        "Non-walkable steep surface blocks upward grounded climbing");
+
+    const auto steep_transition_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            steep_transition_result.value(),
+            y_settings_result.value());
+
+    check(
+        state,
+        steep_transition_ground_result.
+                has_value() &&
+            steep_transition_ground_result.
+                value().
+                has_value() &&
+            steep_transition_ground_result.
+                value()->
+                pair().
+                contains(
+                    transition_floor_id),
+        "Blocked steep transition remains grounded on the flat floor");
+
+    const auto guard_wall_result =
+        move_world_capsule_along_ground(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            guard_wall_start_result.value(),
+            WorldDisplacement{
+                3.0,
+                0.0,
+                0.0
+            },
+            y_settings_result.value(),
+            0.1,
+            64U,
+            4U);
+
+    check(
+        state,
+        guard_wall_result.has_value(),
+        "Vertical-wall grounded motion succeeds");
+
+    if (!guard_wall_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto guard_wall_displacement_result =
+        guard_wall_start_result.
+            value().
+            displacement_to(
+                guard_wall_result.value());
+
+    check(
+        state,
+        guard_wall_displacement_result.has_value() &&
+            guard_wall_displacement_result.
+                value().
+                x >
+                0.0 &&
+            guard_wall_displacement_result.
+                value().
+                x <
+                3.0 &&
+            nearly_equal(
+                guard_wall_displacement_result.
+                    value().
+                    y,
+                0.0) &&
+            nearly_equal(
+                guard_wall_displacement_result.
+                    value().
+                    z,
+                0.0),
+        "Vertical wall blocks horizontal motion without steep-slope climbing");
+
+    const auto guard_wall_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            guard_wall_result.value(),
+            y_settings_result.value());
+
+    check(
+        state,
+        guard_wall_ground_result.has_value() &&
+            guard_wall_ground_result.
+                value().
+                has_value() &&
+            guard_wall_ground_result.
+                value()->
+                pair().
+                contains(
+                    guard_floor_id),
+        "Vertical-wall blocking preserves walkable support");
+
+    const auto ledge_initial_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            ledge_start_result.value(),
+            y_settings_result.value());
+
+    check(
+        state,
+        ledge_initial_ground_result.has_value() &&
+            ledge_initial_ground_result.
+                value().
+                has_value() &&
+            ledge_initial_ground_result.
+                value()->
+                pair().
+                contains(
+                    ledge_floor_id),
+        "Ledge departure starts grounded");
+
+    const auto ledge_result =
+        move_world_capsule_along_ground(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            ledge_start_result.value(),
+            WorldDisplacement{
+                5.0,
+                0.0,
+                0.0
+            },
+            y_settings_result.value(),
+            0.1,
+            64U,
+            4U);
+
+    check(
+        state,
+        ledge_result.has_value(),
+        "Ledge departure grounded motion succeeds");
+
+    if (!ledge_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto ledge_displacement_result =
+        ledge_start_result.
+            value().
+            displacement_to(
+                ledge_result.value());
+
+    check(
+        state,
+        ledge_displacement_result.has_value() &&
+            nearly_equal(
+                ledge_displacement_result.
+                    value().
+                    x,
+                5.0) &&
+            nearly_equal(
+                ledge_displacement_result.
+                    value().
+                    y,
+                0.0) &&
+            nearly_equal(
+                ledge_displacement_result.
+                    value().
+                    z,
+                0.0),
+        "Steep guard does not block unsupported ledge departure");
+
+    const auto ledge_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            ledge_result.value(),
+            y_settings_result.value());
+
+    check(
+        state,
+        ledge_ground_result.has_value() &&
+            !ledge_ground_result.
+                value().
+                has_value(),
+        "Ledge departure may end without walkable support");
 
     const auto budget_result =
         move_world_capsule_along_ground(
