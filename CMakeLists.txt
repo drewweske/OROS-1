@@ -435,6 +435,7 @@ add_library(
 target_sources(
     oros_physical_world
     PRIVATE
+        engine/physical_world/src/world_capsule_contact_normal.cpp
         engine/physical_world/src/world_capsule_contact_query.cpp
         engine/physical_world/src/world_capsule_depenetration.cpp
         engine/physical_world/src/world_capsule_ground_query.cpp

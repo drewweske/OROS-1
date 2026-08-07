@@ -4,51 +4,12 @@
 #include "oros/physics/collision_contact.hpp"
 #include "oros/physics/physics_vector.hpp"
 
+#include "world_capsule_contact_normal.hpp"
+
 #include <cstddef>
 
 namespace oros::physical_world
 {
-    namespace
-    {
-        [[nodiscard]]
-        foundation::Result<
-            physics::PhysicsVector3>
-        capsule_outward_normal(
-            const physics::CollisionContact&
-                contact,
-            const physics::ColliderId
-                capsule_collider)
-        {
-            if (!contact.pair().contains(
-                    capsule_collider))
-            {
-                return foundation::fail(
-                    foundation::ErrorCode::
-                        internal_failure,
-                    "Capsule depenetration received "
-                    "a contact that does not contain "
-                    "the capsule collider identity.");
-            }
-
-            const physics::PhysicsVector3
-                canonical_normal =
-                    contact.
-                        normal().
-                        vector();
-
-            if (contact.
-                    pair().
-                    first_collider() ==
-                capsule_collider)
-            {
-                return
-                    -canonical_normal;
-            }
-
-            return canonical_normal;
-        }
-    }
-
     foundation::Result<
         world::WorldPosition>
     resolve_world_capsule_penetration(
@@ -128,9 +89,10 @@ namespace oros::physical_world
             }
 
             const auto outward_normal_result =
-                capsule_outward_normal(
-                    *deepest_contact,
-                    capsule_collider);
+                detail::
+                    capsule_outward_contact_normal(
+                        *deepest_contact,
+                        capsule_collider);
 
             if (!outward_normal_result.has_value())
             {

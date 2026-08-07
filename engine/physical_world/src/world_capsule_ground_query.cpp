@@ -3,6 +3,8 @@
 #include "oros/physical_world/world_capsule_contact_query.hpp"
 #include "oros/physics/physics_vector.hpp"
 
+#include "world_capsule_contact_normal.hpp"
+
 #include <cmath>
 #include <optional>
 
@@ -46,32 +48,27 @@ namespace oros::physical_world
                  contact :
              contacts_result.value())
         {
-            if (!contact.pair().contains(
-                    capsule_collider))
+            const auto outward_normal_result =
+                detail::
+                    capsule_outward_contact_normal(
+                        contact,
+                        capsule_collider);
+
+            if (!outward_normal_result.has_value())
             {
                 return foundation::fail(
-                    foundation::ErrorCode::
-                        internal_failure,
-                    "Capsule ground query received "
-                    "a contact that does not contain "
-                    "the capsule collider identity.");
+                    outward_normal_result.
+                        error().
+                        code,
+                    outward_normal_result.
+                        error().
+                        message);
             }
-
-            const physics::PhysicsVector3
-                canonical_normal =
-                    contact.normal().vector();
-
-            const physics::PhysicsVector3
-                capsule_outward_normal =
-                    contact.pair().first_collider() ==
-                            capsule_collider
-                        ? -canonical_normal
-                        : canonical_normal;
 
             const physics::PhysicsScalar
                 up_dot =
                     physics::dot(
-                        capsule_outward_normal,
+                        outward_normal_result.value(),
                         traversal_settings.
                             up_direction().
                             vector());
