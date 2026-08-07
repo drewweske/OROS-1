@@ -10,6 +10,16 @@
 
 namespace oros::physical_world
 {
+    namespace
+    {
+        inline constexpr
+            physics::PhysicsScalar
+            capsule_penetration_resolution_tolerance{
+                physics::
+                    physics_vector_zero_tolerance
+            };
+    }
+
     foundation::Result<
         world::WorldPosition>
     resolve_world_capsule_penetration(
@@ -67,7 +77,7 @@ namespace oros::physical_world
             {
                 if (contact.
                         penetration_depth() <=
-                    0.0)
+                    capsule_penetration_resolution_tolerance)
                 {
                     continue;
                 }
@@ -159,7 +169,7 @@ namespace oros::physical_world
              final_contacts_result.value())
         {
             if (contact.penetration_depth() >
-                0.0)
+                capsule_penetration_resolution_tolerance)
             {
                 return foundation::fail(
                     foundation::ErrorCode::

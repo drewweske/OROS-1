@@ -438,6 +438,7 @@ target_sources(
         engine/physical_world/src/world_capsule_contact_normal.cpp
         engine/physical_world/src/world_capsule_contact_query.cpp
         engine/physical_world/src/world_capsule_depenetration.cpp
+        engine/physical_world/src/world_capsule_ground_motion.cpp
         engine/physical_world/src/world_capsule_ground_query.cpp
         engine/physical_world/src/world_capsule_ground_snap.cpp
         engine/physical_world/src/world_capsule_motion.cpp
@@ -1048,6 +1049,13 @@ if(BUILD_TESTING)
         oros_physical_world_world_capsule_ground_snap_tests
         oros.physical_world.world_capsule_ground_snap
         tests/physical_world/world_capsule_ground_snap_tests.cpp
+        oros_physical_world
+    )
+
+    oros_add_test_target(
+        oros_physical_world_world_capsule_ground_motion_tests
+        oros.physical_world.world_capsule_ground_motion
+        tests/physical_world/world_capsule_ground_motion_tests.cpp
         oros_physical_world
     )
 endif()
