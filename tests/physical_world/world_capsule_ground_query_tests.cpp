@@ -164,6 +164,14 @@ int main()
         1U
     };
 
+    const ColliderId slope_support_id{
+        EntityId{
+            world_namespace,
+            400ULL
+        },
+        1U
+    };
+
     const auto capsule_shape_result =
         CapsuleShape::create(
             1.0,
@@ -187,6 +195,10 @@ int main()
                 10.0
             });
 
+    const auto slope_support_shape_result =
+        SphereShape::create(
+            1.0);
+
     check(
         state,
         capsule_shape_result.has_value(),
@@ -202,9 +214,15 @@ int main()
         wall_shape_result.has_value(),
         "Ground-query wall shape is created");
 
+    check(
+        state,
+        slope_support_shape_result.has_value(),
+        "Ground-query slope support shape is created");
+
     if (!capsule_shape_result.has_value() ||
         !floor_shape_result.has_value() ||
-        !wall_shape_result.has_value())
+        !wall_shape_result.has_value() ||
+        !slope_support_shape_result.has_value())
     {
         return finish(state);
     }
@@ -243,6 +261,20 @@ int main()
             0.5,
             0.25);
 
+    const auto walkable_slope_settings_result =
+        WorldCapsuleTraversalSettings::create(
+            PhysicsUnitVector3::positive_y(),
+            0.70,
+            0.5,
+            0.25);
+
+    const auto steep_slope_settings_result =
+        WorldCapsuleTraversalSettings::create(
+            PhysicsUnitVector3::positive_y(),
+            0.72,
+            0.5,
+            0.25);
+
     check(
         state,
         y_settings_result.has_value(),
@@ -258,9 +290,21 @@ int main()
         z_settings_result.has_value(),
         "Positive-Z traversal settings are created");
 
+    check(
+        state,
+        walkable_slope_settings_result.has_value(),
+        "Walkable-slope traversal settings are created");
+
+    check(
+        state,
+        steep_slope_settings_result.has_value(),
+        "Steep-slope traversal settings are created");
+
     if (!y_settings_result.has_value() ||
         !x_settings_result.has_value() ||
-        !z_settings_result.has_value())
+        !z_settings_result.has_value() ||
+        !walkable_slope_settings_result.has_value() ||
+        !steep_slope_settings_result.has_value())
     {
         return finish(state);
     }
@@ -340,6 +384,16 @@ int main()
                 0.0
             });
 
+    const auto slope_support_result =
+        ColliderGeometry::create(
+            slope_support_id,
+            slope_support_shape_result.value(),
+            PhysicsVector3{
+                21.2,
+                -2.2,
+                0.0
+            });
+
     check(
         state,
         shallow_floor_result.has_value(),
@@ -355,20 +409,27 @@ int main()
         left_wall_result.has_value(),
         "Touching wall geometry is created");
 
+    check(
+        state,
+        slope_support_result.has_value(),
+        "Sloped sphere support geometry is created");
+
     if (!shallow_floor_result.has_value() ||
         !deep_floor_result.has_value() ||
-        !left_wall_result.has_value())
+        !left_wall_result.has_value() ||
+        !slope_support_result.has_value())
     {
         return finish(state);
     }
 
     const std::array<
         ColliderGeometry,
-        3U>
+        4U>
         colliders{
             shallow_floor_result.value(),
             deep_floor_result.value(),
-            left_wall_result.value()
+            left_wall_result.value(),
+            slope_support_result.value()
         };
 
     const auto collider_set_result =
@@ -460,7 +521,7 @@ int main()
         state,
         registry.is_valid() &&
             registry.collider_count() ==
-                3U,
+                4U,
         "Ground-query registry is valid");
 
     const auto y_ground_high_result =
@@ -576,6 +637,72 @@ int main()
                 value().
                 has_value(),
         "Contacts without sufficient positive-Z alignment are rejected");
+
+    const auto slope_position_result =
+        WorldPosition::create(
+            WorldCell{},
+            LocalPosition{
+                20.0,
+                0.0,
+                0.0
+            });
+
+    check(
+        state,
+        slope_position_result.has_value(),
+        "Sloped-support query position is created");
+
+    if (!slope_position_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto walkable_slope_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_high,
+            capsule_shape_result.value(),
+            slope_position_result.value(),
+            walkable_slope_settings_result.value());
+
+    check(
+        state,
+        walkable_slope_result.has_value() &&
+            walkable_slope_result.
+                value().
+                has_value(),
+        "Non-axis-aligned support passes the walkable slope threshold");
+
+    check(
+        state,
+        walkable_slope_result.has_value() &&
+            walkable_slope_result.
+                value().
+                has_value() &&
+            walkable_slope_result.
+                value()->
+                pair().
+                contains(
+                    slope_support_id),
+        "Walkable slope query selects the spherical support");
+
+    const auto steep_slope_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_high,
+            capsule_shape_result.value(),
+            slope_position_result.value(),
+            steep_slope_settings_result.value());
+
+    check(
+        state,
+        steep_slope_result.has_value() &&
+            !steep_slope_result.
+                value().
+                has_value(),
+        "Same non-axis-aligned support is rejected above the slope threshold");
 
     return finish(state);
 }
