@@ -203,6 +203,14 @@ int main()
         1U
     };
 
+    const ColliderId x_steep_obstacle_id{
+        EntityId{
+            world_namespace,
+            800ULL
+        },
+        1U
+    };
+
     const auto capsule_shape_result =
         CapsuleShape::create(
             1.0,
@@ -453,6 +461,16 @@ int main()
                 0.0
             });
 
+    const auto x_steep_obstacle_geometry_result =
+        ColliderGeometry::create(
+            x_steep_obstacle_id,
+            slope_shape_result.value(),
+            PhysicsVector3{
+                38.3,
+                3.9,
+                0.0
+            });
+
     check(
         state,
         floor_geometry_result.has_value(),
@@ -493,6 +511,11 @@ int main()
         ledge_floor_geometry_result.has_value(),
         "Steep-guard ledge floor geometry is created");
 
+    check(
+        state,
+        x_steep_obstacle_geometry_result.has_value(),
+        "Positive-X-up steep obstacle geometry is created");
+
     if (!floor_geometry_result.has_value() ||
         !slope_geometry_result.has_value() ||
         !x_support_geometry_result.has_value() ||
@@ -500,7 +523,8 @@ int main()
         !steep_obstacle_geometry_result.has_value() ||
         !guard_wall_geometry_result.has_value() ||
         !guard_floor_geometry_result.has_value() ||
-        !ledge_floor_geometry_result.has_value())
+        !ledge_floor_geometry_result.has_value() ||
+        !x_steep_obstacle_geometry_result.has_value())
     {
         return finish(state);
     }
@@ -512,7 +536,7 @@ int main()
 
     const std::array<
         ColliderGeometry,
-        8U>
+        9U>
         colliders{
             floor_geometry_result.value(),
             slope_geometry_result.value(),
@@ -521,7 +545,8 @@ int main()
             steep_obstacle_geometry_result.value(),
             guard_wall_geometry_result.value(),
             guard_floor_geometry_result.value(),
-            ledge_floor_geometry_result.value()
+            ledge_floor_geometry_result.value(),
+            x_steep_obstacle_geometry_result.value()
         };
 
     const auto collider_set_result =
@@ -613,7 +638,7 @@ int main()
         state,
         registry.is_valid() &&
             registry.collider_count() ==
-                8U,
+                9U,
         "Ground-motion registry is valid");
 
     const auto non_finite_result =
@@ -1072,6 +1097,106 @@ int main()
                 contains(
                     x_support_id),
         "Positive-X traversal remains grounded");
+
+    const auto x_steep_initial_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            x_support_start_result.value(),
+            x_settings_result.value());
+
+    check(
+        state,
+        x_steep_initial_ground_result.has_value() &&
+            x_steep_initial_ground_result.
+                value().
+                has_value() &&
+            x_steep_initial_ground_result.
+                value()->
+                pair().
+                contains(
+                    x_support_id),
+        "Positive-X steep transition starts on walkable support");
+
+    const auto x_steep_result =
+        move_world_capsule_along_ground(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            x_support_start_result.value(),
+            WorldDisplacement{
+                0.0,
+                3.0,
+                0.0
+            },
+            x_settings_result.value(),
+            0.1,
+            64U,
+            4U);
+
+    check(
+        state,
+        x_steep_result.has_value(),
+        "Positive-X steep-transition grounded motion succeeds");
+
+    if (!x_steep_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto x_steep_displacement_result =
+        x_support_start_result.
+            value().
+            displacement_to(
+                x_steep_result.value());
+
+    check(
+        state,
+        x_steep_displacement_result.has_value() &&
+            nearly_equal(
+                x_steep_displacement_result.
+                    value().
+                    x,
+                0.0) &&
+            x_steep_displacement_result.
+                value().
+                y >
+                0.0 &&
+            x_steep_displacement_result.
+                value().
+                y <
+                3.0 &&
+            nearly_equal(
+                x_steep_displacement_result.
+                    value().
+                    z,
+                0.0),
+        "Steep guard follows explicit positive-X up direction");
+
+    const auto x_steep_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            x_steep_result.value(),
+            x_settings_result.value());
+
+    check(
+        state,
+        x_steep_ground_result.has_value() &&
+            x_steep_ground_result.
+                value().
+                has_value() &&
+            x_steep_ground_result.
+                value()->
+                pair().
+                contains(
+                    x_support_id),
+        "Positive-X steep block preserves walkable support");
 
     const auto steep_transition_initial_ground_result =
         query_world_capsule_ground_contact(
