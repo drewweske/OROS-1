@@ -435,6 +435,7 @@ add_library(
 target_sources(
     oros_physical_world
     PRIVATE
+        engine/physical_world/src/world_cell_collider_payload.cpp
         engine/physical_world/src/world_cell_collider_set.cpp
 )
 
@@ -983,6 +984,13 @@ if(BUILD_TESTING)
         oros_physical_world_world_cell_collider_set_tests
         oros.physical_world.world_cell_collider_set
         tests/physical_world/world_cell_collider_set_tests.cpp
+        oros_physical_world
+    )
+
+    oros_add_test_target(
+        oros_physical_world_world_cell_collider_payload_tests
+        oros.physical_world.world_cell_collider_payload
+        tests/physical_world/world_cell_collider_payload_tests.cpp
         oros_physical_world
     )
 endif()

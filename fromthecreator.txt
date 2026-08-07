@@ -1,0 +1,294 @@
+This is OROS 1
+This is a proprietary game engine built to be the next big thing.
+
+As a kid I always grew up playing games that put you, the player, in larger than life worlds. I grew up engrossed and enthralled with the worlds of Star Wars, Indiana Jones,  The Elder Scrolls, Fallout, The walking Dead, Borderlands, the Marvel Cinematic Universe, Grand Theft Auto,
+
+I am not a coder or programmer, I have very little to none knowledge on modern C++ or really anything about programming game engines or coding graphics and physics systems.
+
+This engine is an experiment in my own interest; to see how far I can get in coding, engineering, designing and architecting my own 3D Open world first person action adventure Survival sandbox RPG; building it file by file with GPT 5.6.
+
+Every single file was copy and pasted from ChatGPT website chat and/or written with Powershell code provided by ChatGPT website.
+
+ABOUT: A proprietary C++23 foundation for a C++26-targeted open-world simulation engine, built from scratch toward a persistent 2045 architecture.
+
+
+
+# OROS 1 — Architecture Constitution
+
+
+
+OROS 1 now has a realistic foundation: a proprietary, C++26-targeted engine designed around persistent worlds, adaptive simulation, data-oriented execution, and AI-native development tools.
+
+
+
+## What the 2026 research tells us
+
+
+
+The strongest ideas worth carrying into OROS are:
+
+
+
+Unreal Engine’s Large World Coordinates, automatic World Partition streaming, and hierarchical virtualized geometry. Epic’s current documentation confirms double-precision world data, grid-based streaming, and fine-grained Nanite geometry streaming. Large World Coordinates, World Partition, Nanite
+
+Creation Engine 3’s public direction emphasizes designer tools, extensibility, enormous sandbox worlds, and creator-made content. Its internal code architecture remains private, so we can study its goals without inventing undocumented implementation details. Creation Engine 3 interview
+
+RAGE remains Rockstar’s proprietary in-house engine, but its internal architecture is also private. OROS can pursue the visible strengths—world density, seamless traversal, animation, physics, vehicles, and systemic interaction—through our own architecture. Rockstar RAGE position
+
+Direct3D 12 gives us the correct Windows-first low-level graphics foundation. Later systems can exploit GPU-generated workloads through Work Graphs when hardware supports them. Direct3D 12 guide, D3D12 Work Graphs specification
+
+Vulkan 1.4 will become OROS’s second rendering backend after the Direct3D 12 renderer is stable. Khronos Vulkan 1.4 overview
+
+
+
+The C++26 decision
+
+
+
+OROS is C++26-targeted, but the foundational build will initially use the stable C++23 feature set.
+
+
+
+Your previously established Visual Studio 2022 compiler cannot reliably compile major C++26 features such as standardized reflection, contracts, and the complete execution library. Even current compiler support remains uneven. Microsoft’s compiler conformance table
+
+
+
+We will enable C++26 features individually when the compiler proves support through feature-test macros. This prevents the entire engine from depending on one experimental compiler feature.
+
+
+
+The OROS 2045 thesis
+
+
+
+The defining idea is Persistent Continuity Architecture:
+
+
+
+Every object, action, asset, region, and simulation event has a stable identity that can travel through the editor, runtime, save system, world streamer, network, replay system, and modding tools without losing meaning.
+
+
+
+A tree cut down by the player can remain cut down. Its wood can become a weapon. That weapon can be dropped, stolen by an NPC, sold in another settlement, streamed out of memory, and restored months later from a save. Every system understands the same identity and history.
+
+
+
+
+
+flowchart TD
+
+&#x20;   A\["Editor, cookers and AI tools"] --> B\["Versioned asset and world database"]
+
+&#x20;   B --> C\["Runtime kernel: lifecycle, jobs and I/O"]
+
+&#x20;   C --> D\["World: ECS, streaming and persistence"]
+
+&#x20;   D --> E\["Physics, AI and gameplay simulation"]
+
+&#x20;   D --> F\["Rendering, audio and interface"]
+
+&#x20;   C --> G\["Platform and hardware abstraction"]
+
+&#x20;   E --> H\["Save, replay and networking"]
+
+&#x20;   F --> H
+
+
+
+
+
+
+
+Complete engine system map
+
+
+
+
+
+| Layer                   | Major systems                                                                                            | 2045 design rule                                             |
+
+| ----------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+
+| Foundation              | Types, IDs, errors, logging, clocks, configuration, math, memory resources, profiling                    | Small, testable and platform-independent                     |
+
+| Platform                | Windows, input, filesystem, processes, threads, sockets, devices, accessibility                          | All operating-system code stays behind narrow interfaces     |
+
+| Runtime kernel          | Engine lifecycle, service graph, task graph, events, frame scheduler, capabilities                       | Dependencies are declared and measurable                     |
+
+| Asset pipeline          | Importers, content hashes, schemas, cooking, compression, cache, hot reload                              | Runtime never parses expensive source assets                 |
+
+| World                   | ECS, spatial database, world cells, streaming sources, HLOD, origin management                           | World existence is separate from memory residency            |
+
+| Persistence             | Stable IDs, snapshots, journals, migrations, checkpoints, replay                                         | Every saved format is versioned from day one                 |
+
+| Rendering               | D3D12 RHI, render graph, GPU scene, bindless resources, virtual geometry/textures, lighting, ray tracing | GPU-driven and capability-scaled                             |
+
+| Simulation              | Collision, rigid bodies, characters, destruction, water, fire, weather, ecology                          | Fixed-step authoritative core with scalable fidelity         |
+
+| Artificial intelligence | Perception, navigation, utility AI, planning, memory, schedules, factions, crowds                        | Local actors run deeply; distant actors run statistically    |
+
+| Gameplay                | Interaction, combat, inventory, crafting, building, survival, skills, quests, dialogue, vehicles         | Systems exchange data through explicit commands and events   |
+
+| Presentation            | Animation, audio, UI, cinematics, cameras, haptics                                                       | Presentation observes simulation without owning it           |
+
+| Networking              | Authoritative server, prediction, reconciliation, interest management, replication                       | Uses the same world partitions and stable IDs as persistence |
+
+| Tools and editor        | World editor, inspectors, profilers, graph tools, asset browser, commandlets                             | Every runtime system must expose debugging information       |
+
+| Modding                 | Versioned schemas, packages, scripting sandbox, dependency manifests                                     | Public interfaces remain isolated from engine internals      |
+
+| AI-native development   | Machine-readable diagnostics, tool commands, asset lineage, automated tests                              | AI agents receive structured facts rather than guessing      |
+
+| Quality                 | Unit tests, integration tests, deterministic replay, sanitizers, crash dumps, benchmarks                 | Every milestone has measurable acceptance criteria           |
+
+
+
+
+
+
+
+What must change from the attached architecture document
+
+
+
+The document is a useful concept paper, but its sample code should not be pasted into Visual Studio.
+
+
+
+
+
+| Document proposal                                    | OROS decision                                                                                               |
+
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+
+| Use C++26 modules exclusively                        | Begin with ordinary headers and source files; introduce modules after compiler/tooling stability is proven  |
+
+| Use `std::execution::static\_thread\_pool`             | Build a small tested task system; that exact standard API does not exist as written                         |
+
+| Use `contract\_assert` immediately                    | Use OROS assertions and tests until your compiler supports standardized contracts                           |
+
+| Replace physics with PINNs                           | Keep deterministic mathematical physics authoritative; neural models may accelerate secondary effects later |
+
+| Use double precision everywhere                      | Use cell coordinates plus local floating-point positions; doubles remain available where required           |
+
+| Allocate a one-gigabyte frame arena immediately      | Begin with standard RAII and `std::pmr`; custom allocators arrive after profiling                           |
+
+| Enable AVX2 globally                                 | Detect CPU capabilities at runtime and select optimized implementations safely                              |
+
+| Use `/arch:AVX2` and `-march=native` for every build | Maintain a portable baseline plus optional optimized code paths                                             |
+
+| Treat every warning in every dependency as an error  | Apply strict warnings only to code owned by OROS                                                            |
+
+
+
+
+
+## Planned master folder architecture
+
+##
+
+## Do not create all of this yet. This is the destination.
+
+
+
+Oros 1/
+
+├── CMakeLists.txt
+
+├── CMakePresets.json
+
+├── cmake/
+
+├── docs/
+
+│   ├── architecture/
+
+│   └── adr/
+
+├── engine/
+
+│   ├── foundation/
+
+│   ├── platform/
+
+│   ├── runtime/
+
+│   ├── assets/
+
+│   ├── world/
+
+│   ├── rendering/
+
+│   ├── physics/
+
+│   ├── ai/
+
+│   ├── audio/
+
+│   ├── networking/
+
+│   └── gameplay/
+
+├── apps/
+
+│   ├── bootstrap/
+
+│   ├── editor/
+
+│   ├── game/
+
+│   └── server/
+
+├── tools/
+
+├── tests/
+
+├── assets/
+
+│   ├── source/
+
+│   └── cooked/
+
+└── third\_party/
+
+
+
+
+
+
+
+
+
+Development course
+
+
+
+Each milestone will build, run, and be tested before another layer is added.
+
+
+
+OROS-000 Genesis: Build system and executable. \[X]
+
+OROS-001 Foundation: Errors, logging, contracts, timing, tests.
+
+OROS-002 Platform: Native Windows window and input.
+
+OROS-003 First Light: Direct3D 12 initialization and first rendered color.
+
+OROS-004 Runtime: Engine lifecycle and fixed-timestep scheduler.
+
+OROS-005 World: Entities, components, stable IDs, spatial coordinates.
+
+OROS-006 Assets: Import, cook, load, cache, and resource handles.
+
+OROS-007 Streaming: World cells, asynchronous I/O, persistence.
+
+OROS-008 Physical World: Collision and first-person controller.
+
+OROS-009 Living World: Navigation, perception, schedules, factions.
+
+OROS-010 RPG Slice: Interaction, inventory, combat, survival, quests.
+
+OROS-011 Forge: Proprietary world editor and debugging tools.
+
+OROS-012 Frontier: Virtual geometry, advanced lighting, destruction, neural acceleration.
