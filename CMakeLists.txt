@@ -437,6 +437,7 @@ target_sources(
     PRIVATE
         engine/physical_world/src/world_capsule_contact_query.cpp
         engine/physical_world/src/world_capsule_depenetration.cpp
+        engine/physical_world/src/world_capsule_motion.cpp
         engine/physical_world/src/world_cell_collider_payload.cpp
         engine/physical_world/src/world_cell_collider_registry.cpp
         engine/physical_world/src/world_cell_collider_set.cpp
@@ -1015,6 +1016,13 @@ if(BUILD_TESTING)
         oros_physical_world_world_capsule_depenetration_tests
         oros.physical_world.world_capsule_depenetration
         tests/physical_world/world_capsule_depenetration_tests.cpp
+        oros_physical_world
+    )
+
+    oros_add_test_target(
+        oros_physical_world_world_capsule_motion_tests
+        oros.physical_world.world_capsule_motion
+        tests/physical_world/world_capsule_motion_tests.cpp
         oros_physical_world
     )
 endif()
