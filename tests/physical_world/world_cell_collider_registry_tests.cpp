@@ -1107,5 +1107,500 @@ int main()
             revision_registry.is_valid(),
         "Rejected revision replacement preserves registry state");
 
+    const auto relative_reference_result =
+        WorldPosition::create(
+            cell_a.cell,
+            LocalPosition{});
+
+    check(
+        state,
+        relative_reference_result.has_value(),
+        "Relative collider query reference is created");
+
+    if (!relative_reference_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto invalid_namespace_relative_result =
+        registry.colliders_relative_to(
+            0ULL,
+            relative_reference_result.value());
+
+    check(
+        state,
+        !invalid_namespace_relative_result.
+                has_value() &&
+            invalid_namespace_relative_result.
+                error().
+                code ==
+            ErrorCode::invalid_argument,
+        "Relative collider query rejects invalid namespace");
+
+    const auto relative_colliders_result =
+        registry.colliders_relative_to(
+            world_namespace,
+            relative_reference_result.value());
+
+    check(
+        state,
+        relative_colliders_result.has_value(),
+        "Relative collider query succeeds");
+
+    check(
+        state,
+        relative_colliders_result.has_value() &&
+            relative_colliders_result.
+                value().
+                size() ==
+                2U,
+        "Relative collider query returns both active colliders");
+
+    if (!relative_colliders_result.has_value() ||
+        relative_colliders_result.
+            value().
+            size() !=
+            2U)
+    {
+        return finish(state);
+    }
+
+    const auto expected_relative_a_result =
+        geometry_a_result.
+            value().
+            with_center(
+                PhysicsVector3{
+                    1.0,
+                    2.0,
+                    3.0
+                });
+
+    const auto expected_relative_b_result =
+        geometry_b_result.
+            value().
+            with_center(
+                PhysicsVector3{
+                    1020.0,
+                    5.0,
+                    -6.0
+                });
+
+    check(
+        state,
+        expected_relative_a_result.has_value() &&
+            expected_relative_b_result.has_value(),
+        "Expected relative collider fixtures are created");
+
+    if (!expected_relative_a_result.has_value() ||
+        !expected_relative_b_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto&
+        relative_colliders =
+            relative_colliders_result.value();
+
+    check(
+        state,
+        relative_colliders[0U].
+            collider() ==
+            collider_a &&
+            relative_colliders[1U].
+                collider() ==
+                collider_b,
+        "Relative collider query preserves canonical identity order");
+
+    check(
+        state,
+        relative_colliders[0U] ==
+            expected_relative_a_result.value(),
+        "Same-cell collider preserves query-relative geometry");
+
+    check(
+        state,
+        relative_colliders[1U] ==
+            expected_relative_b_result.value(),
+        "Neighbor-cell collider includes cell displacement");
+
+    const auto other_namespace_relative_result =
+        registry.colliders_relative_to(
+            world_namespace + 1ULL,
+            relative_reference_result.value());
+
+    check(
+        state,
+        other_namespace_relative_result.has_value() &&
+            other_namespace_relative_result.
+                value().
+                empty(),
+        "Relative collider query excludes another namespace");
+
+    const WorldCellKey boundary_left_cell{
+        world_namespace,
+        WorldCell{
+            0,
+            0,
+            0
+        }
+    };
+
+    const WorldCellKey boundary_right_cell{
+        world_namespace,
+        WorldCell{
+            1,
+            0,
+            0
+        }
+    };
+
+    const ColliderId boundary_left_collider{
+        EntityId{
+            world_namespace,
+            300ULL
+        },
+        1U
+    };
+
+    const ColliderId boundary_right_collider{
+        EntityId{
+            world_namespace,
+            400ULL
+        },
+        1U
+    };
+
+    const auto boundary_left_geometry_result =
+        ColliderGeometry::create(
+            boundary_left_collider,
+            sphere_a_result.value(),
+            PhysicsVector3{
+                500.0,
+                0.0,
+                0.0
+            });
+
+    const auto boundary_right_geometry_result =
+        ColliderGeometry::create(
+            boundary_right_collider,
+            sphere_b_result.value(),
+            PhysicsVector3{
+                -500.0,
+                0.0,
+                0.0
+            });
+
+    check(
+        state,
+        boundary_left_geometry_result.has_value() &&
+            boundary_right_geometry_result.has_value(),
+        "Cross-boundary collider geometries are created");
+
+    if (!boundary_left_geometry_result.has_value() ||
+        !boundary_right_geometry_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const std::array<
+        ColliderGeometry,
+        1U>
+        boundary_left_colliders{
+            boundary_left_geometry_result.value()
+        };
+
+    const std::array<
+        ColliderGeometry,
+        1U>
+        boundary_right_colliders{
+            boundary_right_geometry_result.value()
+        };
+
+    const auto boundary_left_set_result =
+        WorldCellColliderSet::create(
+            boundary_left_cell,
+            std::span<
+                const ColliderGeometry>{
+                    boundary_left_colliders
+                });
+
+    const auto boundary_right_set_result =
+        WorldCellColliderSet::create(
+            boundary_right_cell,
+            std::span<
+                const ColliderGeometry>{
+                    boundary_right_colliders
+                });
+
+    check(
+        state,
+        boundary_left_set_result.has_value() &&
+            boundary_right_set_result.has_value(),
+        "Cross-boundary collider sets are created");
+
+    if (!boundary_left_set_result.has_value() ||
+        !boundary_right_set_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto boundary_left_payload_result =
+        serialize_world_cell_collider_payload(
+            boundary_left_set_result.value());
+
+    const auto boundary_right_payload_result =
+        serialize_world_cell_collider_payload(
+            boundary_right_set_result.value());
+
+    check(
+        state,
+        boundary_left_payload_result.has_value() &&
+            boundary_right_payload_result.has_value(),
+        "Cross-boundary collider payloads serialize");
+
+    if (!boundary_left_payload_result.has_value() ||
+        !boundary_right_payload_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto boundary_left_snapshot_result =
+        WorldCellSnapshot::create(
+            boundary_left_cell,
+            57ULL,
+            std::span<const std::byte>{
+                boundary_left_payload_result.value()
+            });
+
+    const auto boundary_right_snapshot_result =
+        WorldCellSnapshot::create(
+            boundary_right_cell,
+            58ULL,
+            std::span<const std::byte>{
+                boundary_right_payload_result.value()
+            });
+
+    check(
+        state,
+        boundary_left_snapshot_result.has_value() &&
+            boundary_right_snapshot_result.has_value(),
+        "Cross-boundary snapshots are created");
+
+    if (!boundary_left_snapshot_result.has_value() ||
+        !boundary_right_snapshot_result.has_value())
+    {
+        return finish(state);
+    }
+
+    auto boundary_left_residency_result =
+        WorldCellResidency::create(
+            boundary_left_cell);
+
+    auto boundary_right_residency_result =
+        WorldCellResidency::create(
+            boundary_right_cell);
+
+    check(
+        state,
+        boundary_left_residency_result.has_value() &&
+            boundary_right_residency_result.has_value(),
+        "Cross-boundary residency records are created");
+
+    if (!boundary_left_residency_result.has_value() ||
+        !boundary_right_residency_result.has_value())
+    {
+        return finish(state);
+    }
+
+    WorldCellResidency boundary_left_residency =
+        std::move(
+            boundary_left_residency_result.value());
+
+    WorldCellResidency boundary_right_residency =
+        std::move(
+            boundary_right_residency_result.value());
+
+    check(
+        state,
+        make_resident(
+            boundary_left_residency,
+            boundary_left_snapshot_result.value(),
+            701ULL),
+        "Left boundary cell becomes resident");
+
+    check(
+        state,
+        make_resident(
+            boundary_right_residency,
+            boundary_right_snapshot_result.value(),
+            702ULL),
+        "Right boundary cell becomes resident");
+
+    WorldCellColliderRegistry
+        boundary_registry{};
+
+    check(
+        state,
+        boundary_registry.synchronize(
+            boundary_right_residency).
+            has_value(),
+        "Right boundary cell activates first");
+
+    check(
+        state,
+        boundary_registry.synchronize(
+            boundary_left_residency).
+            has_value(),
+        "Left boundary cell activates second");
+
+    check(
+        state,
+        boundary_registry.is_valid() &&
+            boundary_registry.
+                active_cell_count() ==
+                2U &&
+            boundary_registry.
+                collider_count() ==
+                2U,
+        "Cross-boundary registry remains valid after reverse activation");
+
+    const auto left_reference_result =
+        WorldPosition::create(
+            boundary_left_cell.cell,
+            LocalPosition{
+                500.0,
+                0.0,
+                0.0
+            });
+
+    check(
+        state,
+        left_reference_result.has_value(),
+        "Left boundary reference position is created");
+
+    if (!left_reference_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto left_relative_result =
+        boundary_registry.
+            colliders_relative_to(
+                world_namespace,
+                left_reference_result.value());
+
+    check(
+        state,
+        left_relative_result.has_value() &&
+            left_relative_result.
+                value().
+                size() ==
+                2U,
+        "Left boundary relative query returns both colliders");
+
+    if (!left_relative_result.has_value() ||
+        left_relative_result.
+            value().
+            size() !=
+            2U)
+    {
+        return finish(state);
+    }
+
+    check(
+        state,
+        left_relative_result.
+                value()[0U].
+                collider() ==
+                boundary_left_collider &&
+            left_relative_result.
+                value()[1U].
+                collider() ==
+                boundary_right_collider,
+        "Cross-boundary query preserves persistent identity order");
+
+    check(
+        state,
+        left_relative_result.
+                value()[0U].
+                center() ==
+                physics_zero_vector,
+        "Reference collider becomes query origin");
+
+    check(
+        state,
+        left_relative_result.
+                value()[1U].
+                center() ==
+                PhysicsVector3{
+                    24.0,
+                    0.0,
+                    0.0
+                },
+        "Neighboring cell plus-500 to minus-500 gap is 24 meters");
+
+    const auto right_reference_result =
+        WorldPosition::create(
+            boundary_right_cell.cell,
+            LocalPosition{
+                -500.0,
+                0.0,
+                0.0
+            });
+
+    check(
+        state,
+        right_reference_result.has_value(),
+        "Right boundary reference position is created");
+
+    if (!right_reference_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto right_relative_result =
+        boundary_registry.
+            colliders_relative_to(
+                world_namespace,
+                right_reference_result.value());
+
+    check(
+        state,
+        right_relative_result.has_value() &&
+            right_relative_result.
+                value().
+                size() ==
+                2U,
+        "Right boundary relative query returns both colliders");
+
+    if (!right_relative_result.has_value() ||
+        right_relative_result.
+            value().
+            size() !=
+            2U)
+    {
+        return finish(state);
+    }
+
+    check(
+        state,
+        right_relative_result.
+                value()[0U].
+                center() ==
+                PhysicsVector3{
+                    -24.0,
+                    0.0,
+                    0.0
+                },
+        "Reverse cross-boundary displacement is minus 24 meters");
+
+    check(
+        state,
+        right_relative_result.
+                value()[1U].
+                center() ==
+                physics_zero_vector,
+        "Right reference collider becomes query origin");
+
     return finish(state);
 }

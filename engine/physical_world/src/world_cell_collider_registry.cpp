@@ -2,6 +2,7 @@
 
 #include "oros/physical_world/world_cell_collider_payload.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <new>
 #include <utility>
@@ -274,6 +275,172 @@ namespace oros::physical_world
         }
 
         return foundation::Status{};
+    }
+
+    foundation::Result<
+        std::vector<
+            physics::ColliderGeometry>>
+    WorldCellColliderRegistry::
+    colliders_relative_to(
+        const std::uint64_t world_namespace,
+        const world::WorldPosition&
+            reference_position) const
+    {
+        if (world_namespace == 0ULL)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_argument,
+                "Relative physical world collider "
+                "queries require a valid world "
+                "namespace.");
+        }
+
+        try
+        {
+            std::vector<
+                physics::ColliderGeometry>
+                relative_colliders;
+
+            for (const ActiveCell&
+                     active_cell :
+                 active_cells_)
+            {
+                const streaming::WorldCellKey&
+                    cell_key =
+                        active_cell.
+                            revision.
+                            cell_key;
+
+                if (cell_key.world_namespace !=
+                    world_namespace)
+                {
+                    continue;
+                }
+
+                for (const physics::
+                         ColliderGeometry&
+                         geometry :
+                     active_cell.
+                         collider_set.
+                         colliders())
+                {
+                    const physics::PhysicsVector3
+                        local_center =
+                            geometry.center();
+
+                    const auto
+                        collider_position_result =
+                            world::WorldPosition::
+                                create(
+                                    cell_key.cell,
+                                    world::
+                                        LocalPosition{
+                                            local_center.x,
+                                            local_center.y,
+                                            local_center.z
+                                        });
+
+                    if (!collider_position_result.
+                            has_value())
+                    {
+                        return foundation::fail(
+                            collider_position_result.
+                                error().
+                                code,
+                            collider_position_result.
+                                error().
+                                message);
+                    }
+
+                    const auto
+                        displacement_result =
+                            reference_position.
+                                displacement_to(
+                                    collider_position_result.
+                                        value());
+
+                    if (!displacement_result.
+                            has_value())
+                    {
+                        return foundation::fail(
+                            displacement_result.
+                                error().
+                                code,
+                            displacement_result.
+                                error().
+                                message);
+                    }
+
+                    const world::WorldDisplacement&
+                        displacement =
+                            displacement_result.
+                                value();
+
+                    const physics::PhysicsVector3
+                        relative_center{
+                            displacement.x,
+                            displacement.y,
+                            displacement.z
+                        };
+
+                    auto relative_geometry_result =
+                        geometry.with_center(
+                            relative_center);
+
+                    if (!relative_geometry_result.
+                            has_value())
+                    {
+                        return foundation::fail(
+                            relative_geometry_result.
+                                error().
+                                code,
+                            relative_geometry_result.
+                                error().
+                                message);
+                    }
+
+                    relative_colliders.push_back(
+                        std::move(
+                            relative_geometry_result.
+                                value()));
+                }
+            }
+
+            std::sort(
+                relative_colliders.begin(),
+                relative_colliders.end(),
+                [](
+                    const physics::
+                        ColliderGeometry& left,
+                    const physics::
+                        ColliderGeometry& right)
+                {
+                    return
+                        left.collider() <
+                        right.collider();
+                });
+
+            return relative_colliders;
+        }
+        catch (const std::bad_alloc&)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    out_of_memory,
+                "Unable to allocate relative "
+                "physical world collider query "
+                "storage.");
+        }
+        catch (...)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    internal_failure,
+                "An unexpected failure occurred "
+                "while creating relative physical "
+                "world collider geometry.");
+        }
     }
 
     const WorldCellColliderSet*

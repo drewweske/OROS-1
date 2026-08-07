@@ -7,8 +7,10 @@
 #include "oros/streaming/world_cell_key.hpp"
 #include "oros/streaming/world_cell_residency.hpp"
 #include "oros/streaming/world_cell_revision_id.hpp"
+#include "oros/world/world_position.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace oros::physical_world
@@ -44,6 +46,15 @@ namespace oros::physical_world
         synchronize(
             const streaming::WorldCellResidency&
                 residency) noexcept;
+
+        [[nodiscard]]
+        foundation::Result<
+            std::vector<
+                physics::ColliderGeometry>>
+        colliders_relative_to(
+            std::uint64_t world_namespace,
+            const world::WorldPosition&
+                reference_position) const;
 
         [[nodiscard]]
         const WorldCellColliderSet*
