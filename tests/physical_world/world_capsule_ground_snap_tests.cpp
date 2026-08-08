@@ -181,6 +181,22 @@ int main()
         1U
     };
 
+    const ColliderId intermediate_floor_id{
+        EntityId{
+            world_namespace,
+            700ULL
+        },
+        1U
+    };
+
+    const ColliderId intermediate_blocker_id{
+        EntityId{
+            world_namespace,
+            800ULL
+        },
+        1U
+    };
+
     const auto capsule_shape_result =
         CapsuleShape::create(
             1.0,
@@ -204,6 +220,10 @@ int main()
                 2.0
             });
 
+    const auto sphere_shape_result =
+        SphereShape::create(
+            1.0);
+
     check(
         state,
         capsule_shape_result.has_value(),
@@ -219,9 +239,15 @@ int main()
         wall_shape_result.has_value(),
         "Ground-snap wall shape is created");
 
+    check(
+        state,
+        sphere_shape_result.has_value(),
+        "Ground-snap blocker sphere shape is created");
+
     if (!capsule_shape_result.has_value() ||
         !floor_shape_result.has_value() ||
-        !wall_shape_result.has_value())
+        !wall_shape_result.has_value() ||
+        !sphere_shape_result.has_value())
     {
         return finish(state);
     }
@@ -334,6 +360,26 @@ int main()
                 0.0
             });
 
+    const auto intermediate_floor_result =
+        ColliderGeometry::create(
+            intermediate_floor_id,
+            floor_shape_result.value(),
+            PhysicsVector3{
+                120.0,
+                -2.748,
+                0.0
+            });
+
+    const auto intermediate_blocker_result =
+        ColliderGeometry::create(
+            intermediate_blocker_id,
+            sphere_shape_result.value(),
+            PhysicsVector3{
+                121.85,
+                -2.0,
+                0.0
+            });
+
     check(
         state,
         near_floor_result.has_value(),
@@ -364,26 +410,40 @@ int main()
         side_wall_result.has_value(),
         "Non-walkable side-wall geometry is created");
 
+    check(
+        state,
+        intermediate_floor_result.has_value(),
+        "Intermediate-blocker walkable floor is created");
+
+    check(
+        state,
+        intermediate_blocker_result.has_value(),
+        "Intermediate non-walkable blocker is created");
+
     if (!near_floor_result.has_value() ||
         !far_floor_result.has_value() ||
         !boundary_floor_result.has_value() ||
         !left_wall_result.has_value() ||
         !penetrating_floor_result.has_value() ||
-        !side_wall_result.has_value())
+        !side_wall_result.has_value() ||
+        !intermediate_floor_result.has_value() ||
+        !intermediate_blocker_result.has_value())
     {
         return finish(state);
     }
 
     const std::array<
         ColliderGeometry,
-        6U>
+        8U>
         colliders{
             near_floor_result.value(),
             far_floor_result.value(),
             boundary_floor_result.value(),
             left_wall_result.value(),
             penetrating_floor_result.value(),
-            side_wall_result.value()
+            side_wall_result.value(),
+            intermediate_floor_result.value(),
+            intermediate_blocker_result.value()
         };
 
     const auto collider_set_result =
@@ -475,7 +535,7 @@ int main()
         state,
         registry.is_valid() &&
             registry.collider_count() ==
-                6U,
+                8U,
         "Ground-snap registry is valid");
 
     const auto near_start_result =
@@ -532,6 +592,15 @@ int main()
                 0.0
             });
 
+    const auto intermediate_start_result =
+        WorldPosition::create(
+            WorldCell{},
+            LocalPosition{
+                120.0,
+                0.0,
+                0.0
+            });
+
     check(
         state,
         near_start_result.has_value() &&
@@ -539,7 +608,8 @@ int main()
             boundary_start_result.has_value() &&
             x_start_result.has_value() &&
             penetration_start_result.has_value() &&
-            side_wall_start_result.has_value(),
+            side_wall_start_result.has_value() &&
+            intermediate_start_result.has_value(),
         "Ground-snap start positions are created");
 
     if (!near_start_result.has_value() ||
@@ -547,7 +617,8 @@ int main()
         !boundary_start_result.has_value() ||
         !x_start_result.has_value() ||
         !penetration_start_result.has_value() ||
-        !side_wall_start_result.has_value())
+        !side_wall_start_result.has_value() ||
+        !intermediate_start_result.has_value())
     {
         return finish(state);
     }
@@ -859,6 +930,47 @@ int main()
             side_wall_snap_result.value() ==
                 side_wall_start_result.value(),
         "Non-walkable wall contact does not cause a ground snap");
+
+    const auto intermediate_initial_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            intermediate_start_result.value(),
+            y_settings_result.value());
+
+    check(
+        state,
+        intermediate_initial_ground_result.has_value() &&
+            !intermediate_initial_ground_result.
+                value().
+                has_value(),
+        "Intermediate-blocker fixture starts unsupported");
+
+    const auto intermediate_snap_result =
+        snap_world_capsule_to_ground(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            intermediate_start_result.value(),
+            y_settings_result.value(),
+            0.1,
+            4U,
+            4U);
+
+    check(
+        state,
+        intermediate_snap_result.has_value(),
+        "Intermediate-blocker ground snap resolves");
+
+    check(
+        state,
+        intermediate_snap_result.has_value() &&
+            intermediate_snap_result.value() ==
+                intermediate_start_result.value(),
+        "Non-walkable intermediate contact blocks ground snap without lateral steering");
 
     const auto penetration_snap_result =
         snap_world_capsule_to_ground(
