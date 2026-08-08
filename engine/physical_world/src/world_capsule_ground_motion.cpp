@@ -8,6 +8,7 @@
 #include "oros/physics/physics_vector.hpp"
 
 #include "world_capsule_contact_normal.hpp"
+#include "world_capsule_substep_plan.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -614,18 +615,14 @@ namespace oros::physical_world
                     "length must remain finite.");
             }
 
-            const physics::PhysicsScalar
-                required_substeps =
-                    std::ceil(
-                        displacement_length /
-                        maximum_substep_distance);
+            const auto substep_count_result =
+                detail::
+                    try_compute_deterministic_substep_count(
+                        displacement_length,
+                        maximum_substep_distance,
+                        maximum_substeps);
 
-            if (!std::isfinite(
-                    required_substeps) ||
-                required_substeps >
-                    static_cast<
-                        physics::PhysicsScalar>(
-                            maximum_substeps))
+            if (!substep_count_result.has_value())
             {
                 return foundation::fail(
                     foundation::ErrorCode::
@@ -635,14 +632,8 @@ namespace oros::physical_world
                     "substep budget.");
             }
 
-            std::size_t substep_count =
-                static_cast<std::size_t>(
-                    required_substeps);
-
-            if (substep_count == 0U)
-            {
-                substep_count = 1U;
-            }
+            const std::size_t substep_count =
+                substep_count_result.value();
 
             const physics::PhysicsScalar
                 inverse_substep_count =
