@@ -482,15 +482,19 @@ target_sources(
     oros_bootstrap
     PRIVATE
         apps/bootstrap/main.cpp
+        apps/bootstrap/physical_world_demo.cpp
 )
 
 target_link_libraries(
     oros_bootstrap
     PRIVATE
         oros_foundation
+        oros_physical_world
+        oros_physics
         oros_platform
         oros_rendering
         oros_runtime
+        oros_streaming
         oros_world
 )
 
