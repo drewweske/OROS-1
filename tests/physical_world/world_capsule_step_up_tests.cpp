@@ -165,6 +165,22 @@ int main()
         1U
     };
 
+    const ColliderId exact_floor_id{
+        EntityId{
+            world_namespace,
+            700ULL
+        },
+        1U
+    };
+
+    const ColliderId exact_step_id{
+        EntityId{
+            world_namespace,
+            800ULL
+        },
+        1U
+    };
+
     const ColliderId x_floor_id{
         EntityId{
             world_namespace,
@@ -219,6 +235,14 @@ int main()
                 2.0
             });
 
+    const auto exact_step_shape_result =
+        BoxShape::create(
+            PhysicsVector3{
+                1.0,
+                0.25,
+                2.0
+            });
+
     const auto x_floor_shape_result =
         BoxShape::create(
             PhysicsVector3{
@@ -262,6 +286,11 @@ int main()
 
     check(
         state,
+        exact_step_shape_result.has_value(),
+        "Exact-maximum-height step shape is created");
+
+    check(
+        state,
         x_floor_shape_result.has_value(),
         "Positive-X-up support shape is created");
 
@@ -275,6 +304,7 @@ int main()
         !floor_shape_result.has_value() ||
         !low_step_shape_result.has_value() ||
         !high_step_shape_result.has_value() ||
+        !exact_step_shape_result.has_value() ||
         !x_floor_shape_result.has_value() ||
         !x_step_shape_result.has_value())
     {
@@ -364,6 +394,26 @@ int main()
                 0.0
             });
 
+    const auto exact_floor_result =
+        ColliderGeometry::create(
+            exact_floor_id,
+            floor_shape_result.value(),
+            PhysicsVector3{
+                40.0,
+                -2.5,
+                0.0
+            });
+
+    const auto exact_step_result =
+        ColliderGeometry::create(
+            exact_step_id,
+            exact_step_shape_result.value(),
+            PhysicsVector3{
+                41.5,
+                -1.75,
+                0.0
+            });
+
     const auto x_floor_result =
         ColliderGeometry::create(
             x_floor_id,
@@ -406,6 +456,16 @@ int main()
 
     check(
         state,
+        exact_floor_result.has_value(),
+        "Exact-height-step floor geometry is created");
+
+    check(
+        state,
+        exact_step_result.has_value(),
+        "Exact-maximum-height step geometry is created");
+
+    check(
+        state,
         x_floor_result.has_value(),
         "Positive-X-up lower support is created");
 
@@ -418,6 +478,8 @@ int main()
         !low_step_result.has_value() ||
         !high_floor_result.has_value() ||
         !high_step_result.has_value() ||
+        !exact_floor_result.has_value() ||
+        !exact_step_result.has_value() ||
         !x_floor_result.has_value() ||
         !x_step_result.has_value())
     {
@@ -431,12 +493,14 @@ int main()
 
     const std::array<
         ColliderGeometry,
-        6U>
+        8U>
         colliders{
             low_floor_result.value(),
             low_step_result.value(),
             high_floor_result.value(),
             high_step_result.value(),
+            exact_floor_result.value(),
+            exact_step_result.value(),
             x_floor_result.value(),
             x_step_result.value()
         };
@@ -530,7 +594,7 @@ int main()
         state,
         registry.is_valid() &&
             registry.collider_count() ==
-                6U,
+                8U,
         "Step-up registry is valid");
 
     const auto low_start_result =
@@ -551,6 +615,15 @@ int main()
                 0.0
             });
 
+    const auto exact_start_result =
+        WorldPosition::create(
+            WorldCell{},
+            LocalPosition{
+                38.0,
+                0.0,
+                0.0
+            });
+
     const auto x_start_result =
         WorldPosition::create(
             WorldCell{},
@@ -564,11 +637,13 @@ int main()
         state,
         low_start_result.has_value() &&
             high_start_result.has_value() &&
+            exact_start_result.has_value() &&
             x_start_result.has_value(),
         "Step-up start positions are created");
 
     if (!low_start_result.has_value() ||
         !high_start_result.has_value() ||
+        !exact_start_result.has_value() ||
         !x_start_result.has_value())
     {
         return finish(state);
@@ -850,6 +925,103 @@ int main()
                 contains(
                     high_floor_id),
         "Blocked over-height step remains on the lower support");
+
+    const auto exact_initial_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            exact_start_result.value(),
+            settings_result.value());
+
+    check(
+        state,
+        exact_initial_ground_result.has_value() &&
+            exact_initial_ground_result.
+                value().
+                has_value() &&
+            exact_initial_ground_result.
+                value()->
+                pair().
+                contains(
+                    exact_floor_id),
+        "Exact-height step fixture starts grounded");
+
+    const auto exact_motion_result =
+        move_world_capsule_along_ground(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            exact_start_result.value(),
+            WorldDisplacement{
+                4.0,
+                0.0,
+                0.0
+            },
+            settings_result.value(),
+            0.1,
+            64U,
+            4U);
+
+    check(
+        state,
+        exact_motion_result.has_value(),
+        "Exact maximum-height step motion resolves");
+
+    if (!exact_motion_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto exact_displacement_result =
+        exact_start_result.
+            value().
+            displacement_to(
+                exact_motion_result.value());
+
+    check(
+        state,
+        exact_displacement_result.has_value() &&
+            nearly_equal(
+                exact_displacement_result.
+                    value().
+                    x,
+                4.0) &&
+            nearly_equal(
+                exact_displacement_result.
+                    value().
+                    y,
+                0.5) &&
+            nearly_equal(
+                exact_displacement_result.
+                    value().
+                    z,
+                0.0),
+        "Step exactly at maximum height is accepted");
+
+    const auto exact_final_ground_result =
+        query_world_capsule_ground_contact(
+            registry,
+            world_namespace,
+            query_collider,
+            capsule_shape_result.value(),
+            exact_motion_result.value(),
+            settings_result.value());
+
+    check(
+        state,
+        exact_final_ground_result.has_value() &&
+            exact_final_ground_result.
+                value().
+                has_value() &&
+            exact_final_ground_result.
+                value()->
+                pair().
+                contains(
+                    exact_step_id),
+        "Exact-height step ends on raised support");
 
     const auto x_initial_ground_result =
         query_world_capsule_ground_contact(
