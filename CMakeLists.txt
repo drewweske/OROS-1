@@ -485,6 +485,7 @@ target_sources(
         engine/ai/src/actor_simulation_fidelity_registry.cpp
         engine/ai/src/actor_simulation_fidelity_state.cpp
         engine/ai/src/actor_simulation_focus_policy.cpp
+        engine/ai/src/actor_simulation_focus_source_registry.cpp
 )
 
 target_include_directories(
@@ -1139,6 +1140,13 @@ if(BUILD_TESTING)
         oros_ai_actor_simulation_focus_policy_tests
         oros.ai.actor_simulation_focus_policy
         tests/ai/actor_simulation_focus_policy_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_focus_source_registry_tests
+        oros.ai.actor_simulation_focus_source_registry
+        tests/ai/actor_simulation_focus_source_registry_tests.cpp
         oros_ai
     )
 endif()
