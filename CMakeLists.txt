@@ -474,6 +474,40 @@ oros_enable_warnings(
     oros_physical_world
 )
 
+add_library(
+    oros_ai
+    STATIC
+)
+
+target_sources(
+    oros_ai
+    PRIVATE
+        engine/ai/src/actor_simulation_fidelity_state.cpp
+)
+
+target_include_directories(
+    oros_ai
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/ai/include"
+)
+
+target_link_libraries(
+    oros_ai
+    PUBLIC
+        oros_foundation
+        oros_world
+)
+
+target_compile_features(
+    oros_ai
+    PUBLIC
+        cxx_std_23
+)
+
+oros_enable_warnings(
+    oros_ai
+)
+
 add_executable(
     oros_bootstrap
 )
@@ -1084,5 +1118,11 @@ if(BUILD_TESTING)
         oros.physical_world.world_capsule_step_up
         tests/physical_world/world_capsule_step_up_tests.cpp
         oros_physical_world
+    )
+    oros_add_test_target(
+        oros_ai_actor_simulation_fidelity_state_tests
+        oros.ai.actor_simulation_fidelity_state
+        tests/ai/actor_simulation_fidelity_state_tests.cpp
+        oros_ai
     )
 endif()
