@@ -1,4 +1,4 @@
-#include "physical_world_demo.hpp"
+#include "live_player_demo.hpp"
 
 #include "oros/foundation/clock.hpp"
 #include "oros/foundation/log.hpp"
@@ -277,24 +277,27 @@ int main()
                 bootstrap_world_cell.z) +
             ".");
 
-    Result<EntityId> player_entity_result =
-        world.create_entity();
+    Result<oros::bootstrap::LivePlayerDemo>
+        live_player_demo_result =
+            oros::bootstrap::
+                create_live_player_demo(
+                    world);
 
-    if (!player_entity_result.has_value())
+    if (!live_player_demo_result.has_value())
     {
         const Error& error =
-            player_entity_result.error();
+            live_player_demo_result.error();
 
         write_log(
             LogLevel::critical,
             "physical_world",
-            "Live player entity creation failed: [" +
+            "Live-player composition failed: [" +
                 std::string{to_string(error.code)} +
                 "] " +
                 error.message);
 
         std::cerr
-            << "OROS live player entity creation failed: ["
+            << "OROS live-player composition failed: ["
             << to_string(error.code)
             << "] "
             << error.message
@@ -303,140 +306,21 @@ int main()
         shutdown_logging();
         return 1;
     }
+
+    oros::bootstrap::LivePlayerDemo
+        live_player_demo{
+            std::move(
+                live_player_demo_result.value())
+        };
 
     const EntityId player_entity =
-        player_entity_result.value();
-
-    Result<EntityId> floor_entity_result =
-        world.create_entity();
-
-    if (!floor_entity_result.has_value())
-    {
-        const Error& error =
-            floor_entity_result.error();
-
-        write_log(
-            LogLevel::critical,
-            "physical_world",
-            "Live floor entity creation failed: [" +
-                std::string{to_string(error.code)} +
-                "] " +
-                error.message);
-
-        std::cerr
-            << "OROS live floor entity creation failed: ["
-            << to_string(error.code)
-            << "] "
-            << error.message
-            << '\n';
-
-        shutdown_logging();
-        return 1;
-    }
+        live_player_demo.player_entity;
 
     const EntityId floor_entity =
-        floor_entity_result.value();
+        live_player_demo.floor_entity;
 
-    Result<WorldPosition> player_position_result =
-        WorldPosition::create(
-            WorldCell{},
-            LocalPosition{
-                0.0,
-                0.0,
-                0.0
-            });
-
-    if (!player_position_result.has_value())
-    {
-        const Error& error =
-            player_position_result.error();
-
-        write_log(
-            LogLevel::critical,
-            "physical_world",
-            "Live player position creation failed: [" +
-                std::string{to_string(error.code)} +
-                "] " +
-                error.message);
-
-        std::cerr
-            << "OROS live player position creation failed: ["
-            << to_string(error.code)
-            << "] "
-            << error.message
-            << '\n';
-
-        shutdown_logging();
-        return 1;
-    }
-
-    const Status player_position_status =
-        world.add_position(
-            player_entity,
-            std::move(
-                player_position_result.value()));
-
-    if (!player_position_status.has_value())
-    {
-        const Error& error =
-            player_position_status.error();
-
-        write_log(
-            LogLevel::critical,
-            "physical_world",
-            "Live player position attachment failed: [" +
-                std::string{to_string(error.code)} +
-                "] " +
-                error.message);
-
-        std::cerr
-            << "OROS live player position attachment failed: ["
-            << to_string(error.code)
-            << "] "
-            << error.message
-            << '\n';
-
-        shutdown_logging();
-        return 1;
-    }
-
-    Result<oros::bootstrap::PhysicalWorldDemo>
-        physical_world_demo_result =
-            oros::bootstrap::
-                create_physical_world_demo(
-                    world.world_namespace(),
-                    player_entity,
-                    floor_entity);
-
-    if (!physical_world_demo_result.has_value())
-    {
-        const Error& error =
-            physical_world_demo_result.error();
-
-        write_log(
-            LogLevel::critical,
-            "physical_world",
-            "Live physical-world composition failed: [" +
-                std::string{to_string(error.code)} +
-                "] " +
-                error.message);
-
-        std::cerr
-            << "OROS live physical-world composition failed: ["
-            << to_string(error.code)
-            << "] "
-            << error.message
-            << '\n';
-
-        shutdown_logging();
-        return 1;
-    }
-
-    oros::bootstrap::PhysicalWorldDemo
-        physical_world_demo{
-            std::move(
-                physical_world_demo_result.value())
-        };
+    const auto& physical_world_demo =
+        live_player_demo.physical_world;
 
     const WorldPosition* initial_player_position =
         world.find_position(
@@ -448,47 +332,11 @@ int main()
             LogLevel::critical,
             "physical_world",
             "The live player lost its authoritative "
-            "WorldPosition immediately after attachment.");
+            "WorldPosition immediately after composition.");
 
         std::cerr
             << "OROS live player position could not be "
-            << "found after attachment.\n";
-
-        shutdown_logging();
-        return 1;
-    }
-
-    if (!world.contains(player_entity) ||
-        !world.contains(floor_entity) ||
-        physical_world_demo.
-                player_collider.
-                owner !=
-            player_entity ||
-        physical_world_demo.
-                floor_collider.
-                owner !=
-            floor_entity ||
-        physical_world_demo.
-                registry.
-                active_cell_count() != 1U ||
-        physical_world_demo.
-                registry.
-                collider_count() != 1U ||
-        !physical_world_demo.
-            registry.
-            contains(
-                physical_world_demo.
-                    floor_collider))
-    {
-        write_log(
-            LogLevel::critical,
-            "physical_world",
-            "Live physical-world identity or residency "
-            "contract was not preserved.");
-
-        std::cerr
-            << "OROS live physical-world identity or "
-            << "residency contract failed.\n";
+            << "found after composition.\n";
 
         shutdown_logging();
         return 1;
@@ -515,7 +363,6 @@ int main()
             oros::world::to_string(
                 floor_entity) +
             " activated for the live controller.");
-
     WindowConfig window_config{};
     window_config.title =
         "OROS 1 - OROS-005 World";
@@ -1053,77 +900,27 @@ int main()
                                         simulation_update_count;
                                 ++simulation_update_index)
                             {
-                                WorldPosition*
-                                    player_position =
-                                        world.find_position(
-                                            player_entity);
-
-                                if (player_position ==
-                                    nullptr)
-                                {
-                                    write_log(
-                                        LogLevel::critical,
-                                        "physical_world",
-                                        "Live player lost its "
-                                        "authoritative "
-                                        "WorldPosition during "
-                                        "simulation.");
-
-                                    std::cerr
-                                        << "OROS live player "
-                                        << "WorldPosition was "
-                                        << "lost during "
-                                        << "simulation.\n";
-
-                                    exit_code = 1;
-
-                                    simulation_frame_failed =
-                                        true;
-
-                                    if (!request_runtime_stop(
-                                            "live player "
-                                            "position loss"))
-                                    {
-                                        simulation_stop_failed =
-                                            true;
-                                    }
-
-                                    break;
-                                }
-
-                                Result<WorldPosition>
-                                    controller_step_result =
-                                        oros::
-                                            physical_world::
-                                            step_world_first_person_controller(
-                                                physical_world_demo.
-                                                    registry,
-                                                world.
-                                                    world_namespace(),
-                                                physical_world_demo.
-                                                    player_collider,
-                                                physical_world_demo.
-                                                    player_capsule,
-                                                *player_position,
+                                const Status
+                                    live_player_step_status =
+                                        oros::bootstrap::
+                                            step_live_player_demo_fixed_tick(
+                                                world,
+                                                live_player_demo,
                                                 movement_command,
-                                                physical_world_demo.
-                                                    traversal_settings,
-                                                physical_world_demo.
-                                                    controller_settings,
                                                 simulation_step);
 
-                                if (!controller_step_result.
+                                if (!live_player_step_status.
                                         has_value())
                                 {
                                     const Error& error =
-                                        controller_step_result.
+                                        live_player_step_status.
                                             error();
 
                                     write_log(
                                         LogLevel::critical,
                                         "physical_world",
-                                        "Live controller fixed "
-                                        "update failed: [" +
+                                        "Live player fixed update "
+                                        "failed: [" +
                                             std::string{
                                                 to_string(
                                                     error.code)} +
@@ -1131,8 +928,8 @@ int main()
                                             error.message);
 
                                     std::cerr
-                                        << "OROS live controller "
-                                        << "fixed update failed: ["
+                                        << "OROS live player fixed "
+                                        << "update failed: ["
                                         << to_string(
                                             error.code)
                                         << "] "
@@ -1145,7 +942,7 @@ int main()
                                         true;
 
                                     if (!request_runtime_stop(
-                                            "live controller "
+                                            "live player "
                                             "simulation failure"))
                                     {
                                         simulation_stop_failed =
@@ -1153,45 +950,7 @@ int main()
                                     }
 
                                     break;
-                                }
-
-                                *player_position =
-                                    std::move(
-                                        controller_step_result.
-                                            value());
-
-                                if (!player_position->
-                                        is_normalized())
-                                {
-                                    write_log(
-                                        LogLevel::critical,
-                                        "physical_world",
-                                        "Live controller produced "
-                                        "a non-normalized "
-                                        "WorldPosition.");
-
-                                    std::cerr
-                                        << "OROS live controller "
-                                        << "produced a "
-                                        << "non-normalized "
-                                        << "WorldPosition.\n";
-
-                                    exit_code = 1;
-
-                                    simulation_frame_failed =
-                                        true;
-
-                                    if (!request_runtime_stop(
-                                            "live player "
-                                            "normalization failure"))
-                                    {
-                                        simulation_stop_failed =
-                                            true;
-                                    }
-
-                                    break;
-                                }
-                            }
+                                }                            }
 
                             if (simulation_stop_failed)
                             {

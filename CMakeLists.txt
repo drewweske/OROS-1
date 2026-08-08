@@ -481,6 +481,7 @@ add_executable(
 target_sources(
     oros_bootstrap
     PRIVATE
+        apps/bootstrap/live_player_demo.cpp
         apps/bootstrap/main.cpp
         apps/bootstrap/physical_world_demo.cpp
 )
