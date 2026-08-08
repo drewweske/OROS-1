@@ -466,7 +466,7 @@ int main()
             x_steep_obstacle_id,
             slope_shape_result.value(),
             PhysicsVector3{
-                38.3,
+                38.7,
                 3.9,
                 0.0
             });
