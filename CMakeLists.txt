@@ -482,6 +482,7 @@ add_library(
 target_sources(
     oros_ai
     PRIVATE
+        engine/ai/src/actor_simulation_fidelity_registry.cpp
         engine/ai/src/actor_simulation_fidelity_state.cpp
 )
 
@@ -1123,6 +1124,13 @@ if(BUILD_TESTING)
         oros_ai_actor_simulation_fidelity_state_tests
         oros.ai.actor_simulation_fidelity_state
         tests/ai/actor_simulation_fidelity_state_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_fidelity_registry_tests
+        oros.ai.actor_simulation_fidelity_registry
+        tests/ai/actor_simulation_fidelity_registry_tests.cpp
         oros_ai
     )
 endif()
