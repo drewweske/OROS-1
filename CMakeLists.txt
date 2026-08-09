@@ -668,6 +668,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_world_time_tests
+        oros.world.time
+        tests/world/world_time_tests.cpp
+        oros_world
+    )
+
+    oros_add_test_target(
         oros_world_tests
         oros.world
         tests/world/world_tests.cpp
