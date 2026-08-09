@@ -2,6 +2,7 @@
 
 #include "oros/ai/actor_scheduled_activity.hpp"
 #include "oros/foundation/result.hpp"
+#include "oros/world/world_time.hpp"
 
 #include <cstddef>
 #include <span>
@@ -32,6 +33,14 @@ namespace oros::ai
         std::span<
             const ActorScheduledActivity>
         activities_in_time_order()
+            const noexcept;
+
+        // Non-owning pointer into schedule storage.
+        // A later successful insert may invalidate it.
+        [[nodiscard]]
+        const ActorScheduledActivity*
+        scheduled_activity_at(
+            world::WorldTime time)
             const noexcept;
 
     private:

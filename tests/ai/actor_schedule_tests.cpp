@@ -118,6 +118,24 @@ int main()
             std::span<
                 const ActorScheduledActivity>>);
 
+    static_assert(
+        std::is_same_v<
+            decltype(
+                std::declval<
+                    const ActorSchedule&>().
+                    scheduled_activity_at(
+                        std::declval<
+                            oros::world::WorldTime>())),
+            const ActorScheduledActivity*>);
+
+    static_assert(
+        noexcept(
+            std::declval<
+                const ActorSchedule&>().
+                scheduled_activity_at(
+                    std::declval<
+                        oros::world::WorldTime>())));
+
     TestState state{};
 
     ActorSchedule empty_schedule{};
@@ -749,6 +767,314 @@ int main()
             bridged[2] ==
                 right_result.value(),
         "Two-sided adjacency inserts at the deterministic chronological position");
+
+    const auto world_time =
+        [](
+            const std::uint64_t
+                microseconds)
+            noexcept
+        {
+            return
+                oros::world::WorldTime::
+                    from_microseconds_since_epoch(
+                        microseconds);
+        };
+
+    check(
+        state,
+        empty_schedule.
+                scheduled_activity_at(
+                    world_time(0ULL)) ==
+            nullptr,
+        "Empty schedule query returns no scheduled activity");
+
+    const Result<ActorScheduledActivity>
+        query_first_result =
+            make_activity(
+                "work",
+                100ULL,
+                200ULL);
+
+    const Result<ActorScheduledActivity>
+        query_adjacent_result =
+            make_activity(
+                "eat",
+                200ULL,
+                300ULL);
+
+    const Result<ActorScheduledActivity>
+        query_late_result =
+            make_activity(
+                "relax",
+                400ULL,
+                500ULL);
+
+    check(
+        state,
+        query_first_result.has_value() &&
+            query_adjacent_result.has_value() &&
+            query_late_result.has_value(),
+        "Authored-query test activities construct successfully");
+
+    if (
+        !query_first_result.has_value() ||
+        !query_adjacent_result.has_value() ||
+        !query_late_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorSchedule query_schedule{};
+
+    status =
+        query_schedule.insert(
+            query_late_result.value());
+
+    if (!status.has_value())
+    {
+        return 1;
+    }
+
+    status =
+        query_schedule.insert(
+            query_first_result.value());
+
+    if (!status.has_value())
+    {
+        return 1;
+    }
+
+    status =
+        query_schedule.insert(
+            query_adjacent_result.value());
+
+    check(
+        state,
+        status.has_value() &&
+            query_schedule.size() == 3U,
+        "Authored-query schedule accepts non-authoritative insertion order");
+
+    if (!status.has_value())
+    {
+        return 1;
+    }
+
+    check(
+        state,
+        query_schedule.
+                scheduled_activity_at(
+                    world_time(0ULL)) ==
+            nullptr,
+        "Query before the first authored window returns none");
+
+    const ActorScheduledActivity*
+        at_first_start =
+            query_schedule.
+                scheduled_activity_at(
+                    world_time(100ULL));
+
+    check(
+        state,
+        at_first_start != nullptr &&
+            *at_first_start ==
+                query_first_result.value(),
+        "Query includes the start boundary of an authored activity");
+
+    const ActorScheduledActivity*
+        at_first_interior =
+            query_schedule.
+                scheduled_activity_at(
+                    world_time(150ULL));
+
+    check(
+        state,
+        at_first_interior != nullptr &&
+            *at_first_interior ==
+                query_first_result.value(),
+        "Query returns the authored activity for interior world time");
+
+    const ActorScheduledActivity*
+        before_first_end =
+            query_schedule.
+                scheduled_activity_at(
+                    world_time(199ULL));
+
+    check(
+        state,
+        before_first_end != nullptr &&
+            *before_first_end ==
+                query_first_result.value(),
+        "Query returns the first activity immediately before its end boundary");
+
+    const ActorScheduledActivity*
+        at_adjacent_handoff =
+            query_schedule.
+                scheduled_activity_at(
+                    world_time(200ULL));
+
+    check(
+        state,
+        at_adjacent_handoff != nullptr &&
+            *at_adjacent_handoff ==
+                query_adjacent_result.value(),
+        "Query hands off exactly to the adjacent activity at the shared boundary");
+
+    const ActorScheduledActivity*
+        at_second_interior =
+            query_schedule.
+                scheduled_activity_at(
+                    world_time(250ULL));
+
+    check(
+        state,
+        at_second_interior != nullptr &&
+            *at_second_interior ==
+                query_adjacent_result.value(),
+        "Query returns the second authored activity inside its window");
+
+    check(
+        state,
+        query_schedule.
+                scheduled_activity_at(
+                    world_time(300ULL)) ==
+            nullptr,
+        "Query at an authored end followed by a gap returns none");
+
+    check(
+        state,
+        query_schedule.
+                scheduled_activity_at(
+                    world_time(350ULL)) ==
+            nullptr,
+        "Query inside an authored schedule gap returns none");
+
+    const ActorScheduledActivity*
+        at_late_start =
+            query_schedule.
+                scheduled_activity_at(
+                    world_time(400ULL));
+
+    check(
+        state,
+        at_late_start != nullptr &&
+            *at_late_start ==
+                query_late_result.value(),
+        "Query includes the start of an activity after a gap");
+
+    const ActorScheduledActivity*
+        at_late_interior =
+            query_schedule.
+                scheduled_activity_at(
+                    world_time(450ULL));
+
+    check(
+        state,
+        at_late_interior != nullptr &&
+            *at_late_interior ==
+                query_late_result.value(),
+        "Query returns the late authored activity inside its window");
+
+    check(
+        state,
+        query_schedule.
+                scheduled_activity_at(
+                    world_time(500ULL)) ==
+            nullptr,
+        "Query excludes the final authored end boundary");
+
+    check(
+        state,
+        query_schedule.
+                scheduled_activity_at(
+                    world_time(600ULL)) ==
+            nullptr,
+        "Query after the final authored activity returns none");
+
+    ActorSchedule query_opposite_history{};
+
+    status =
+        query_opposite_history.insert(
+            query_first_result.value());
+
+    if (!status.has_value())
+    {
+        return 1;
+    }
+
+    status =
+        query_opposite_history.insert(
+            query_adjacent_result.value());
+
+    if (!status.has_value())
+    {
+        return 1;
+    }
+
+    status =
+        query_opposite_history.insert(
+            query_late_result.value());
+
+    if (!status.has_value())
+    {
+        return 1;
+    }
+
+    const ActorScheduledActivity*
+        history_a =
+            query_schedule.
+                scheduled_activity_at(
+                    world_time(200ULL));
+
+    const ActorScheduledActivity*
+        history_b =
+            query_opposite_history.
+                scheduled_activity_at(
+                    world_time(200ULL));
+
+    check(
+        state,
+        history_a != nullptr &&
+            history_b != nullptr &&
+            *history_a ==
+                *history_b &&
+            *history_a ==
+                query_adjacent_result.value(),
+        "Different insertion histories produce the same authored query result");
+
+    const std::size_t
+        query_size_before =
+            query_schedule.size();
+
+    const auto
+        query_order_before =
+            query_schedule.
+                activities_in_time_order();
+
+    const ActorScheduledActivity*
+        observed =
+            query_schedule.
+                scheduled_activity_at(
+                    world_time(150ULL));
+
+    check(
+        state,
+        observed != nullptr &&
+            query_schedule.size() ==
+                query_size_before &&
+            query_schedule.
+                    activities_in_time_order().
+                    size() ==
+                query_order_before.size() &&
+            query_schedule.
+                    activities_in_time_order()[0] ==
+                query_order_before[0] &&
+            query_schedule.
+                    activities_in_time_order()[1] ==
+                query_order_before[1] &&
+            query_schedule.
+                    activities_in_time_order()[2] ==
+                query_order_before[2],
+        "Authored schedule query does not mutate canonical schedule state");
 
     std::cout
         << state.checks

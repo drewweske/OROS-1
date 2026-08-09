@@ -112,6 +112,49 @@ namespace oros::ai
         return activities_;
     }
 
+    const ActorScheduledActivity*
+    ActorSchedule::scheduled_activity_at(
+        const world::WorldTime time)
+        const noexcept
+    {
+        const auto iterator =
+            std::upper_bound(
+                activities_.begin(),
+                activities_.end(),
+                time,
+                [](
+                    const world::WorldTime
+                        query_time,
+                    const ActorScheduledActivity&
+                        activity)
+                    noexcept
+                {
+                    return
+                        query_time <
+                        activity.window().
+                            start_inclusive();
+                });
+
+        if (iterator == activities_.begin())
+        {
+            return nullptr;
+        }
+
+        auto candidate =
+            iterator;
+
+        --candidate;
+
+        if (
+            !candidate->window().
+                contains(time))
+        {
+            return nullptr;
+        }
+
+        return &(*candidate);
+    }
+
     std::size_t
     ActorSchedule::lower_bound_index(
         const ActorScheduledActivity&
