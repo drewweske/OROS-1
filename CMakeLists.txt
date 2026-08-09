@@ -1289,6 +1289,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_ai_navigation_node_id_tests
+        oros.ai.navigation_node_id
+        tests/ai/navigation_node_id_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
         oros_ai_actor_scheduled_activity_tests
         oros.ai.actor_scheduled_activity
         tests/ai/actor_scheduled_activity_tests.cpp
