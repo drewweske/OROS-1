@@ -484,6 +484,7 @@ target_sources(
     PRIVATE
         engine/ai/src/actor_activity_intent_key.cpp
         engine/ai/src/actor_schedule.cpp
+        engine/ai/src/actor_schedule_execution_state.cpp
         engine/ai/src/actor_scheduled_activity.cpp
         engine/ai/src/actor_schedule_window.cpp
         engine/ai/src/actor_simulation_fidelity_registry.cpp
@@ -1226,6 +1227,13 @@ if(BUILD_TESTING)
         oros_ai_actor_schedule_tests
         oros.ai.actor_schedule
         tests/ai/actor_schedule_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_schedule_execution_state_tests
+        oros.ai.actor_schedule_execution_state
+        tests/ai/actor_schedule_execution_state_tests.cpp
         oros_ai
     )
 endif()
