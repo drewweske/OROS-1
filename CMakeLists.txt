@@ -489,6 +489,7 @@ target_sources(
         engine/ai/src/faction_relationship.cpp
         engine/ai/src/faction_relationship_matrix.cpp
         engine/ai/src/faction_trust.cpp
+        engine/ai/src/faction_trust_matrix.cpp
         engine/ai/src/actor_schedule.cpp
         engine/ai/src/actor_schedule_execution_state.cpp
         engine/ai/src/actor_scheduled_activity.cpp
@@ -1247,6 +1248,13 @@ if(BUILD_TESTING)
         oros_ai_faction_trust_tests
         oros.ai.faction_trust
         tests/ai/faction_trust_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_faction_trust_matrix_tests
+        oros.ai.faction_trust_matrix
+        tests/ai/faction_trust_matrix_tests.cpp
         oros_ai
     )
 
