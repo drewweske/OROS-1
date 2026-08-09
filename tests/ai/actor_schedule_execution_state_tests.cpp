@@ -188,6 +188,27 @@ int main()
             decltype(
                 std::declval<
                     ActorScheduleExecutionState&>().
+                    end_interruption_and_rejoin_schedule(
+                        std::declval<
+                            const ActorSchedule&>(),
+                        std::declval<
+                            WorldTime>())),
+            Status>);
+
+    static_assert(
+        !noexcept(
+            std::declval<
+                ActorScheduleExecutionState&>().
+                end_interruption_and_rejoin_schedule(
+                    std::declval<
+                        const ActorSchedule&>(),
+                    std::declval<
+                        WorldTime>())));
+    static_assert(
+        std::is_same_v<
+            decltype(
+                std::declval<
+                    ActorScheduleExecutionState&>().
                     synchronize_following_intent_from_schedule(
                         std::declval<
                             const ActorSchedule&>(),
@@ -1245,6 +1266,316 @@ int main()
             begin_already_interrupted.
                 is_interrupted(),
         "Already-interrupted begin failure preserves complete state exactly");
+    Result<ActorScheduleExecutionState>
+        rejoin_following_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a,
+                    work);
+
+    if (!rejoin_following_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        rejoin_following =
+            rejoin_following_result.value();
+
+    const Status rejoin_following_status =
+        rejoin_following.
+            end_interruption_and_rejoin_schedule(
+                sync_schedule,
+                world_time(250ULL));
+
+    check(
+        state,
+        !rejoin_following_status.has_value() &&
+            rejoin_following_status.
+                error().code ==
+            ErrorCode::invalid_state,
+        "Following state rejects interruption-end schedule rejoin");
+
+    check(
+        state,
+        rejoin_following.actor() ==
+                actor_a &&
+            rejoin_following.
+                persistent_intent().
+                has_value() &&
+            rejoin_following.
+                persistent_intent().
+                value() ==
+                work &&
+            !rejoin_following.is_interrupted(),
+        "Following-state rejoin rejection leaves complete state unchanged");
+
+    Result<ActorScheduleExecutionState>
+        rejoin_same_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (!rejoin_same_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        rejoin_same =
+            rejoin_same_result.value();
+
+    const Status rejoin_same_status =
+        rejoin_same.
+            end_interruption_and_rejoin_schedule(
+                sync_schedule,
+                world_time(150ULL));
+
+    check(
+        state,
+        rejoin_same_status.has_value() &&
+            rejoin_same.actor() ==
+                actor_a &&
+            rejoin_same.
+                persistent_intent().
+                has_value() &&
+            rejoin_same.
+                persistent_intent().
+                value() ==
+                work &&
+            !rejoin_same.is_interrupted(),
+        "Interrupted state resumes matching retained authored intent");
+
+    Result<ActorScheduleExecutionState>
+        rejoin_different_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (!rejoin_different_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        rejoin_different =
+            rejoin_different_result.value();
+
+    const Status rejoin_different_status =
+        rejoin_different.
+            end_interruption_and_rejoin_schedule(
+                sync_schedule,
+                world_time(250ULL));
+
+    check(
+        state,
+        rejoin_different_status.has_value() &&
+            rejoin_different.actor() ==
+                actor_a &&
+            rejoin_different.
+                persistent_intent().
+                has_value() &&
+            rejoin_different.
+                persistent_intent().
+                value() ==
+                sleep &&
+            !rejoin_different.is_interrupted(),
+        "Interrupted state rejoins a different current authored intent");
+
+    Result<ActorScheduleExecutionState>
+        rejoin_gap_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (!rejoin_gap_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        rejoin_gap =
+            rejoin_gap_result.value();
+
+    const Status rejoin_gap_status =
+        rejoin_gap.
+            end_interruption_and_rejoin_schedule(
+                sync_schedule,
+                world_time(350ULL));
+
+    check(
+        state,
+        rejoin_gap_status.has_value() &&
+            rejoin_gap.actor() ==
+                actor_a &&
+            !rejoin_gap.
+                persistent_intent().
+                has_value() &&
+            !rejoin_gap.is_interrupted(),
+        "Interrupted state rejoins authored gap as following state without intent");
+
+    Result<ActorScheduleExecutionState>
+        rejoin_before_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (!rejoin_before_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        rejoin_before =
+            rejoin_before_result.value();
+
+    const Status rejoin_before_status =
+        rejoin_before.
+            end_interruption_and_rejoin_schedule(
+                sync_schedule,
+                world_time(50ULL));
+
+    check(
+        state,
+        rejoin_before_status.has_value() &&
+            rejoin_before.actor() ==
+                actor_a &&
+            !rejoin_before.
+                persistent_intent().
+                has_value() &&
+            !rejoin_before.is_interrupted(),
+        "Interrupted state before first authored window rejoins without intent");
+
+    Result<ActorScheduleExecutionState>
+        rejoin_after_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (!rejoin_after_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        rejoin_after =
+            rejoin_after_result.value();
+
+    const Status rejoin_after_status =
+        rejoin_after.
+            end_interruption_and_rejoin_schedule(
+                sync_schedule,
+                world_time(600ULL));
+
+    check(
+        state,
+        rejoin_after_status.has_value() &&
+            rejoin_after.actor() ==
+                actor_a &&
+            !rejoin_after.
+                persistent_intent().
+                has_value() &&
+            !rejoin_after.is_interrupted(),
+        "Interrupted state after final authored window rejoins without intent");
+
+    Result<ActorScheduleExecutionState>
+        rejoin_boundary_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (!rejoin_boundary_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        rejoin_boundary =
+            rejoin_boundary_result.value();
+
+    const Status rejoin_boundary_status =
+        rejoin_boundary.
+            end_interruption_and_rejoin_schedule(
+                sync_schedule,
+                world_time(200ULL));
+
+    check(
+        state,
+        rejoin_boundary_status.has_value() &&
+            rejoin_boundary.actor() ==
+                actor_a &&
+            rejoin_boundary.
+                persistent_intent().
+                has_value() &&
+            rejoin_boundary.
+                persistent_intent().
+                value() ==
+                sleep &&
+            !rejoin_boundary.is_interrupted(),
+        "Interruption rejoin at exact adjacent boundary adopts next authored intent");
+
+    Result<ActorScheduleExecutionState>
+        rejoin_history_a_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    Result<ActorScheduleExecutionState>
+        rejoin_history_b_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (
+        !rejoin_history_a_result.has_value() ||
+        !rejoin_history_b_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        rejoin_history_a =
+            rejoin_history_a_result.value();
+
+    ActorScheduleExecutionState&
+        rejoin_history_b =
+            rejoin_history_b_result.value();
+
+    const Status rejoin_history_a_status =
+        rejoin_history_a.
+            end_interruption_and_rejoin_schedule(
+                sync_schedule,
+                world_time(200ULL));
+
+    const Status rejoin_history_b_status =
+        rejoin_history_b.
+            end_interruption_and_rejoin_schedule(
+                sync_forward_schedule,
+                world_time(200ULL));
+
+    check(
+        state,
+        rejoin_history_a_status.has_value() &&
+            rejoin_history_b_status.has_value() &&
+            rejoin_history_a ==
+                rejoin_history_b &&
+            rejoin_history_a.
+                persistent_intent().
+                has_value() &&
+            rejoin_history_a.
+                persistent_intent().
+                value() ==
+                sleep &&
+            !rejoin_history_a.is_interrupted(),
+        "Equivalent schedule insertion histories produce equal interruption-rejoin state");
     std::cout
         << state.checks
         << " checks, "

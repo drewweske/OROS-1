@@ -153,6 +153,83 @@ namespace oros::ai
     }
     foundation::Status
     ActorScheduleExecutionState::
+        end_interruption_and_rejoin_schedule(
+            const ActorSchedule& schedule,
+            const world::WorldTime time)
+    {
+        if (!interrupted_)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_state,
+                "Actor schedule execution state "
+                "must be interrupted before it can "
+                "rejoin the authored schedule.");
+        }
+
+        const ActorScheduledActivity*
+            scheduled_activity =
+                schedule.
+                    scheduled_activity_at(
+                        time);
+
+        if (scheduled_activity == nullptr)
+        {
+            persistent_intent_.reset();
+            interrupted_ = false;
+            return {};
+        }
+
+        const ActorActivityIntentKey&
+            authored_intent =
+                scheduled_activity->intent();
+
+        if (
+            persistent_intent_.value() ==
+                authored_intent)
+        {
+            interrupted_ = false;
+            return {};
+        }
+
+        std::optional<
+            ActorActivityIntentKey>
+            replacement_intent{};
+
+        try
+        {
+            replacement_intent.emplace(
+                authored_intent);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    out_of_memory,
+                "Actor schedule execution state "
+                "could not allocate its schedule-"
+                "rejoin persistent intent.");
+        }
+        catch (...)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    internal_failure,
+                "Actor schedule execution state "
+                "schedule-rejoin persistent-intent "
+                "replacement failed.");
+        }
+
+        persistent_intent_ =
+            std::move(
+                replacement_intent);
+
+        interrupted_ = false;
+
+        return {};
+    }
+    foundation::Status
+    ActorScheduleExecutionState::
         synchronize_following_intent_from_schedule(
             const ActorSchedule& schedule,
             const world::WorldTime time)
