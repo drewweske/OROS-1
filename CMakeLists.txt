@@ -486,6 +486,7 @@ target_sources(
         engine/ai/src/actor_faction_membership.cpp
         engine/ai/src/actor_faction_membership_set.cpp
         engine/ai/src/faction_key.cpp
+        engine/ai/src/faction_relationship.cpp
         engine/ai/src/actor_schedule.cpp
         engine/ai/src/actor_schedule_execution_state.cpp
         engine/ai/src/actor_scheduled_activity.cpp
@@ -1223,6 +1224,13 @@ if(BUILD_TESTING)
         oros_ai_faction_key_tests
         oros.ai.faction_key
         tests/ai/faction_key_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_faction_relationship_tests
+        oros.ai.faction_relationship
+        tests/ai/faction_relationship_tests.cpp
         oros_ai
     )
 
