@@ -492,6 +492,7 @@ target_sources(
         engine/ai/src/faction_relationship_matrix.cpp
         engine/ai/src/faction_trust.cpp
         engine/ai/src/faction_trust_matrix.cpp
+        engine/ai/src/navigation_node_record.cpp
         engine/ai/src/actor_schedule.cpp
         engine/ai/src/actor_schedule_execution_state.cpp
         engine/ai/src/actor_scheduled_activity.cpp
@@ -1299,6 +1300,13 @@ if(BUILD_TESTING)
         oros_ai_navigation_portal_id_tests
         oros.ai.navigation_portal_id
         tests/ai/navigation_portal_id_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_node_record_tests
+        oros.ai.navigation_node_record
+        tests/ai/navigation_node_record_tests.cpp
         oros_ai
     )
 
