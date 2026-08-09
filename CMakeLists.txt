@@ -482,6 +482,7 @@ add_library(
 target_sources(
     oros_ai
     PRIVATE
+        engine/ai/src/actor_schedule_window.cpp
         engine/ai/src/actor_simulation_fidelity_registry.cpp
         engine/ai/src/actor_simulation_fidelity_state.cpp
         engine/ai/src/actor_simulation_position_snapshot_set.cpp
@@ -1194,6 +1195,13 @@ if(BUILD_TESTING)
         oros_ai_actor_simulation_focus_decision_set_application_tests
         oros.ai.actor_simulation_focus_decision_set_application
         tests/ai/actor_simulation_focus_decision_set_application_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_schedule_window_tests
+        oros.ai.actor_schedule_window
+        tests/ai/actor_schedule_window_tests.cpp
         oros_ai
     )
 endif()
