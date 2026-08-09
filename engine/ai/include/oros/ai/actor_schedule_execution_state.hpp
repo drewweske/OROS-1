@@ -1,8 +1,10 @@
 #pragma once
 
 #include "oros/ai/actor_activity_intent_key.hpp"
+#include "oros/ai/actor_schedule.hpp"
 #include "oros/foundation/result.hpp"
 #include "oros/world/entity_id.hpp"
+#include "oros/world/world_time.hpp"
 
 #include <optional>
 
@@ -50,6 +52,12 @@ namespace oros::ai
         operator=(
             ActorScheduleExecutionState&&)
             noexcept = default;
+
+        [[nodiscard]]
+        foundation::Status
+        synchronize_following_intent_from_schedule(
+            const ActorSchedule& schedule,
+            world::WorldTime time);
 
         [[nodiscard]]
         world::EntityId

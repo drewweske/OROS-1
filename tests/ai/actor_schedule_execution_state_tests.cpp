@@ -1,9 +1,14 @@
 #include "oros/ai/actor_schedule_execution_state.hpp"
 
 #include "oros/ai/actor_activity_intent_key.hpp"
+#include "oros/ai/actor_schedule.hpp"
+#include "oros/ai/actor_schedule_window.hpp"
 #include "oros/foundation/result.hpp"
 #include "oros/world/entity_id.hpp"
+#include "oros/world/world_time.hpp"
 
+#include <cstdint>
+#include <expected>
 #include <iostream>
 #include <optional>
 #include <string_view>
@@ -41,6 +46,58 @@ namespace
             << "[fail] "
             << name
             << '\n';
+    }
+    oros::foundation::Result<
+        oros::ai::ActorScheduledActivity>
+    make_scheduled_activity(
+        const std::string_view intent_name,
+        const std::uint64_t
+            start_microseconds,
+        const std::uint64_t
+            end_microseconds)
+    {
+        using namespace oros::ai;
+        using namespace oros::foundation;
+        using namespace oros::world;
+
+        Result<ActorActivityIntentKey>
+            intent_result =
+                ActorActivityIntentKey::create(
+                    "oros",
+                    intent_name);
+
+        if (!intent_result.has_value())
+        {
+            return std::unexpected{
+                std::move(
+                    intent_result.error())
+            };
+        }
+
+        Result<ActorScheduleWindow>
+            window_result =
+                ActorScheduleWindow::create(
+                    WorldTime::
+                        from_microseconds_since_epoch(
+                            start_microseconds),
+                    WorldTime::
+                        from_microseconds_since_epoch(
+                            end_microseconds));
+
+        if (!window_result.has_value())
+        {
+            return std::unexpected{
+                std::move(
+                    window_result.error())
+            };
+        }
+
+        return ActorScheduledActivity{
+            std::move(
+                intent_result.value()),
+            std::move(
+                window_result.value())
+        };
     }
 }
 
@@ -112,6 +169,37 @@ int main()
             std::declval<
                 const ActorScheduleExecutionState&>().
                 is_interrupted()));
+
+    static_assert(
+        std::is_same_v<
+            decltype(
+                std::declval<
+                    ActorScheduleExecutionState&>().
+                    synchronize_following_intent_from_schedule(
+                        std::declval<
+                            const ActorSchedule&>(),
+                        std::declval<
+                            WorldTime>())),
+            Status>);
+
+    static_assert(
+        !noexcept(
+            std::declval<
+                ActorScheduleExecutionState&>().
+                synchronize_following_intent_from_schedule(
+                    std::declval<
+                        const ActorSchedule&>(),
+                    std::declval<
+                        WorldTime>())));
+
+    static_assert(
+        noexcept(
+            std::declval<
+                std::optional<
+                    ActorActivityIntentKey>&>() =
+            std::declval<
+                std::optional<
+                    ActorActivityIntentKey>&&>()));
 
     TestState state{};
 
@@ -447,6 +535,553 @@ int main()
         move_assigned == following,
         "Execution-state move assignment preserves complete deterministic meaning");
 
+    const auto world_time =
+        [](
+            const std::uint64_t
+                microseconds)
+            noexcept
+        {
+            return
+                WorldTime::
+                    from_microseconds_since_epoch(
+                        microseconds);
+        };
+
+    const Result<ActorScheduledActivity>
+        sync_work_activity_result =
+            make_scheduled_activity(
+                "work",
+                100ULL,
+                200ULL);
+
+    const Result<ActorScheduledActivity>
+        sync_sleep_activity_result =
+            make_scheduled_activity(
+                "sleep",
+                200ULL,
+                300ULL);
+
+    const Result<ActorScheduledActivity>
+        sync_late_activity_result =
+            make_scheduled_activity(
+                "work",
+                400ULL,
+                500ULL);
+
+    check(
+        state,
+        sync_work_activity_result.has_value() &&
+            sync_sleep_activity_result.has_value() &&
+            sync_late_activity_result.has_value(),
+        "Synchronization schedule prerequisites construct successfully");
+
+    if (
+        !sync_work_activity_result.has_value() ||
+        !sync_sleep_activity_result.has_value() ||
+        !sync_late_activity_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorSchedule sync_schedule{};
+
+    Status sync_insert_status =
+        sync_schedule.insert(
+            sync_late_activity_result.value());
+
+    if (!sync_insert_status.has_value())
+    {
+        return 1;
+    }
+
+    sync_insert_status =
+        sync_schedule.insert(
+            sync_sleep_activity_result.value());
+
+    if (!sync_insert_status.has_value())
+    {
+        return 1;
+    }
+
+    sync_insert_status =
+        sync_schedule.insert(
+            sync_work_activity_result.value());
+
+    check(
+        state,
+        sync_insert_status.has_value() &&
+            sync_schedule.size() == 3U,
+        "Synchronization schedule accepts non-authoritative reverse insertion history");
+
+    if (!sync_insert_status.has_value())
+    {
+        return 1;
+    }
+
+    ActorSchedule empty_sync_schedule{};
+
+    Result<ActorScheduleExecutionState>
+        sync_empty_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a);
+
+    if (!sync_empty_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_empty_state =
+            sync_empty_state_result.value();
+
+    const Status sync_empty_status =
+        sync_empty_state.
+            synchronize_following_intent_from_schedule(
+                empty_sync_schedule,
+                world_time(150ULL));
+
+    check(
+        state,
+        sync_empty_status.has_value() &&
+            !sync_empty_state.
+                persistent_intent().
+                has_value() &&
+            sync_empty_state.actor() ==
+                actor_a &&
+            !sync_empty_state.is_interrupted(),
+        "Empty following state synchronized against empty schedule remains without persistent intent");
+
+    Result<ActorScheduleExecutionState>
+        sync_gap_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a,
+                    sleep);
+
+    if (!sync_gap_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_gap_state =
+            sync_gap_state_result.value();
+
+    const Status sync_gap_status =
+        sync_gap_state.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(350ULL));
+
+    check(
+        state,
+        sync_gap_status.has_value() &&
+            !sync_gap_state.
+                persistent_intent().
+                has_value() &&
+            sync_gap_state.actor() ==
+                actor_a &&
+            !sync_gap_state.is_interrupted(),
+        "Stale following intent is cleared inside authored schedule gap");
+
+    Result<ActorScheduleExecutionState>
+        sync_adopt_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a);
+
+    if (!sync_adopt_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_adopt_state =
+            sync_adopt_state_result.value();
+
+    const Status sync_adopt_status =
+        sync_adopt_state.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(150ULL));
+
+    check(
+        state,
+        sync_adopt_status.has_value() &&
+            sync_adopt_state.
+                persistent_intent().
+                has_value() &&
+            sync_adopt_state.
+                persistent_intent().
+                value() ==
+            work &&
+            sync_adopt_state.actor() ==
+                actor_a &&
+            !sync_adopt_state.is_interrupted(),
+        "Following state without intent adopts authored activity intent");
+
+    Result<ActorScheduleExecutionState>
+        sync_replace_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a,
+                    sleep);
+
+    if (!sync_replace_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_replace_state =
+            sync_replace_state_result.value();
+
+    const Status sync_replace_status =
+        sync_replace_state.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(150ULL));
+
+    check(
+        state,
+        sync_replace_status.has_value() &&
+            sync_replace_state.
+                persistent_intent().
+                has_value() &&
+            sync_replace_state.
+                persistent_intent().
+                value() ==
+            work &&
+            sync_replace_state.actor() ==
+                actor_a &&
+            !sync_replace_state.is_interrupted(),
+        "Different following intent is replaced by authored activity intent");
+
+    Result<ActorScheduleExecutionState>
+        sync_same_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a,
+                    work);
+
+    if (!sync_same_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_same_state =
+            sync_same_state_result.value();
+
+    const Status sync_same_status_first =
+        sync_same_state.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(150ULL));
+
+    const Status sync_same_status_second =
+        sync_same_state.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(150ULL));
+
+    check(
+        state,
+        sync_same_status_first.has_value() &&
+            sync_same_status_second.has_value() &&
+            sync_same_state.
+                persistent_intent().
+                has_value() &&
+            sync_same_state.
+                persistent_intent().
+                value() ==
+            work &&
+            !sync_same_state.is_interrupted(),
+        "Same authored intent synchronization is an idempotent successful no-op");
+
+    Result<ActorScheduleExecutionState>
+        sync_boundary_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a,
+                    work);
+
+    if (!sync_boundary_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_boundary_state =
+            sync_boundary_state_result.value();
+
+    const Status sync_boundary_status =
+        sync_boundary_state.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(200ULL));
+
+    check(
+        state,
+        sync_boundary_status.has_value() &&
+            sync_boundary_state.
+                persistent_intent().
+                has_value() &&
+            sync_boundary_state.
+                persistent_intent().
+                value() ==
+            sleep,
+        "Exact adjacent boundary adopts the next authored activity intent");
+
+    Result<ActorScheduleExecutionState>
+        sync_before_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a,
+                    sleep);
+
+    if (!sync_before_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_before_state =
+            sync_before_state_result.value();
+
+    const Status sync_before_status =
+        sync_before_state.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(50ULL));
+
+    check(
+        state,
+        sync_before_status.has_value() &&
+            !sync_before_state.
+                persistent_intent().
+                has_value(),
+        "Before-first authored time clears following persistent intent");
+
+    Result<ActorScheduleExecutionState>
+        sync_after_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a,
+                    work);
+
+    if (!sync_after_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_after_state =
+            sync_after_state_result.value();
+
+    const Status sync_after_status =
+        sync_after_state.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(600ULL));
+
+    check(
+        state,
+        sync_after_status.has_value() &&
+            !sync_after_state.
+                persistent_intent().
+                has_value(),
+        "After-final authored time clears following persistent intent");
+
+    Result<ActorScheduleExecutionState>
+        sync_interrupted_activity_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (!sync_interrupted_activity_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_interrupted_activity =
+            sync_interrupted_activity_result.value();
+
+    const Status
+        sync_interrupted_activity_status =
+            sync_interrupted_activity.
+                synchronize_following_intent_from_schedule(
+                    sync_schedule,
+                    world_time(250ULL));
+
+    check(
+        state,
+        !sync_interrupted_activity_status.
+                has_value() &&
+            sync_interrupted_activity_status.
+                error().code ==
+            ErrorCode::invalid_state,
+        "Interrupted state rejects synchronization to a different authored intent");
+
+    check(
+        state,
+        sync_interrupted_activity.actor() ==
+                actor_a &&
+            sync_interrupted_activity.
+                persistent_intent().
+                has_value() &&
+            sync_interrupted_activity.
+                persistent_intent().
+                value() ==
+                work &&
+            sync_interrupted_activity.
+                is_interrupted(),
+        "Interrupted different-intent rejection preserves retained intent exactly");
+
+    Result<ActorScheduleExecutionState>
+        sync_interrupted_gap_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (!sync_interrupted_gap_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_interrupted_gap =
+            sync_interrupted_gap_result.value();
+
+    const Status sync_interrupted_gap_status =
+        sync_interrupted_gap.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(350ULL));
+
+    check(
+        state,
+        !sync_interrupted_gap_status.
+                has_value() &&
+            sync_interrupted_gap_status.
+                error().code ==
+            ErrorCode::invalid_state,
+        "Interrupted state rejects synchronization during authored gap");
+
+    check(
+        state,
+        sync_interrupted_gap.actor() ==
+                actor_a &&
+            sync_interrupted_gap.
+                persistent_intent().
+                has_value() &&
+            sync_interrupted_gap.
+                persistent_intent().
+                value() ==
+                work &&
+            sync_interrupted_gap.
+                is_interrupted(),
+        "Interrupted gap rejection preserves retained intent exactly");
+
+    check(
+        state,
+        sync_adopt_state.actor() ==
+                actor_a &&
+            !sync_adopt_state.is_interrupted() &&
+            sync_replace_state.actor() ==
+                actor_a &&
+            !sync_replace_state.is_interrupted() &&
+            sync_boundary_state.actor() ==
+                actor_a &&
+            !sync_boundary_state.is_interrupted(),
+        "Synchronization preserves actor EntityId and interruption state");
+
+    ActorSchedule sync_forward_schedule{};
+
+    Status sync_forward_insert_status =
+        sync_forward_schedule.insert(
+            sync_work_activity_result.value());
+
+    if (!sync_forward_insert_status.has_value())
+    {
+        return 1;
+    }
+
+    sync_forward_insert_status =
+        sync_forward_schedule.insert(
+            sync_sleep_activity_result.value());
+
+    if (!sync_forward_insert_status.has_value())
+    {
+        return 1;
+    }
+
+    sync_forward_insert_status =
+        sync_forward_schedule.insert(
+            sync_late_activity_result.value());
+
+    if (!sync_forward_insert_status.has_value())
+    {
+        return 1;
+    }
+
+    Result<ActorScheduleExecutionState>
+        sync_history_a_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a);
+
+    Result<ActorScheduleExecutionState>
+        sync_history_b_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a);
+
+    if (
+        !sync_history_a_result.has_value() ||
+        !sync_history_b_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        sync_history_a =
+            sync_history_a_result.value();
+
+    ActorScheduleExecutionState&
+        sync_history_b =
+            sync_history_b_result.value();
+
+    const Status sync_history_a_status =
+        sync_history_a.
+            synchronize_following_intent_from_schedule(
+                sync_schedule,
+                world_time(200ULL));
+
+    const Status sync_history_b_status =
+        sync_history_b.
+            synchronize_following_intent_from_schedule(
+                sync_forward_schedule,
+                world_time(200ULL));
+
+    check(
+        state,
+        sync_history_a_status.has_value() &&
+            sync_history_b_status.has_value() &&
+            sync_history_a ==
+                sync_history_b &&
+            sync_history_a.
+                persistent_intent().
+                has_value() &&
+            sync_history_a.
+                persistent_intent().
+                value() ==
+                sleep,
+        "Equivalent schedule insertion histories produce equal synchronized state");
     std::cout
         << state.checks
         << " checks, "
