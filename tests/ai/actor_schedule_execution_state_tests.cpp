@@ -175,6 +175,19 @@ int main()
             decltype(
                 std::declval<
                     ActorScheduleExecutionState&>().
+                    begin_interruption()),
+            Status>);
+
+    static_assert(
+        !noexcept(
+            std::declval<
+                ActorScheduleExecutionState&>().
+                begin_interruption()));
+    static_assert(
+        std::is_same_v<
+            decltype(
+                std::declval<
+                    ActorScheduleExecutionState&>().
                     synchronize_following_intent_from_schedule(
                         std::declval<
                             const ActorSchedule&>(),
@@ -1082,6 +1095,156 @@ int main()
                 value() ==
                 sleep,
         "Equivalent schedule insertion histories produce equal synchronized state");
+    Result<ActorScheduleExecutionState>
+        begin_success_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a,
+                    work);
+
+    if (!begin_success_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        begin_success_state =
+            begin_success_state_result.value();
+
+    const Status begin_success_status =
+        begin_success_state.
+            begin_interruption();
+
+    check(
+        state,
+        begin_success_status.has_value(),
+        "Following state with persistent intent begins interruption successfully");
+
+    check(
+        state,
+        begin_success_state.actor() ==
+                actor_a &&
+            begin_success_state.
+                persistent_intent().
+                has_value() &&
+            begin_success_state.
+                persistent_intent().
+                value() ==
+                work &&
+            begin_success_state.
+                is_interrupted(),
+        "Successful begin interruption preserves actor and persistent intent while changing interruption state");
+
+    const Status begin_second_status =
+        begin_success_state.
+            begin_interruption();
+
+    check(
+        state,
+        !begin_second_status.has_value() &&
+            begin_second_status.
+                error().code ==
+            ErrorCode::invalid_state,
+        "Second begin interruption is rejected with invalid_state");
+
+    check(
+        state,
+        begin_success_state.actor() ==
+                actor_a &&
+            begin_success_state.
+                persistent_intent().
+                has_value() &&
+            begin_success_state.
+                persistent_intent().
+                value() ==
+                work &&
+            begin_success_state.
+                is_interrupted(),
+        "Second begin interruption failure leaves complete state unchanged");
+
+    Result<ActorScheduleExecutionState>
+        begin_no_intent_state_result =
+            ActorScheduleExecutionState::
+                create_following(
+                    actor_a);
+
+    if (!begin_no_intent_state_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        begin_no_intent_state =
+            begin_no_intent_state_result.value();
+
+    const Status begin_no_intent_status =
+        begin_no_intent_state.
+            begin_interruption();
+
+    check(
+        state,
+        !begin_no_intent_status.has_value() &&
+            begin_no_intent_status.
+                error().code ==
+            ErrorCode::invalid_state,
+        "Following state without persistent intent rejects begin interruption");
+
+    check(
+        state,
+        begin_no_intent_state.actor() ==
+                actor_a &&
+            !begin_no_intent_state.
+                persistent_intent().
+                has_value() &&
+            !begin_no_intent_state.
+                is_interrupted(),
+        "No-intent begin interruption failure leaves complete state unchanged");
+
+    Result<ActorScheduleExecutionState>
+        begin_already_interrupted_result =
+            ActorScheduleExecutionState::
+                create_interrupted(
+                    actor_a,
+                    work);
+
+    if (!begin_already_interrupted_result.has_value())
+    {
+        return 1;
+    }
+
+    ActorScheduleExecutionState&
+        begin_already_interrupted =
+            begin_already_interrupted_result.
+                value();
+
+    const Status
+        begin_already_interrupted_status =
+            begin_already_interrupted.
+                begin_interruption();
+
+    check(
+        state,
+        !begin_already_interrupted_status.
+                has_value() &&
+            begin_already_interrupted_status.
+                error().code ==
+            ErrorCode::invalid_state,
+        "Already-interrupted state rejects begin interruption");
+
+    check(
+        state,
+        begin_already_interrupted.actor() ==
+                actor_a &&
+            begin_already_interrupted.
+                persistent_intent().
+                has_value() &&
+            begin_already_interrupted.
+                persistent_intent().
+                value() ==
+                work &&
+            begin_already_interrupted.
+                is_interrupted(),
+        "Already-interrupted begin failure preserves complete state exactly");
     std::cout
         << state.checks
         << " checks, "

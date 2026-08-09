@@ -55,6 +55,10 @@ namespace oros::ai
 
         [[nodiscard]]
         foundation::Status
+        begin_interruption();
+
+        [[nodiscard]]
+        foundation::Status
         synchronize_following_intent_from_schedule(
             const ActorSchedule& schedule,
             world::WorldTime time);

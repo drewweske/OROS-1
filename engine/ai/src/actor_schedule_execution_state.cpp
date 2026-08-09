@@ -126,6 +126,33 @@ namespace oros::ai
 
     foundation::Status
     ActorScheduleExecutionState::
+        begin_interruption()
+    {
+        if (interrupted_)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_state,
+                "Actor schedule execution state "
+                "is already interrupted.");
+        }
+
+        if (!persistent_intent_.has_value())
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_state,
+                "Actor schedule execution state "
+                "requires a persistent intent "
+                "before interruption can begin.");
+        }
+
+        interrupted_ = true;
+
+        return {};
+    }
+    foundation::Status
+    ActorScheduleExecutionState::
         synchronize_following_intent_from_schedule(
             const ActorSchedule& schedule,
             const world::WorldTime time)
