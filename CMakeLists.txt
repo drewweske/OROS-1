@@ -500,6 +500,7 @@ target_sources(
         engine/ai/src/navigation_traversal.cpp
         engine/ai/src/navigation_obstacle_overlay.cpp
         engine/ai/src/navigation_effective_traversal.cpp
+        engine/ai/src/navigation_search.cpp
         engine/ai/src/actor_schedule.cpp
         engine/ai/src/actor_schedule_execution_state.cpp
         engine/ai/src/actor_scheduled_activity.cpp
@@ -1363,6 +1364,13 @@ if(BUILD_TESTING)
         oros_ai_navigation_effective_traversal_tests
         oros.ai.navigation_effective_traversal
         tests/ai/navigation_effective_traversal_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_search_tests
+        oros.ai.navigation_search
+        tests/ai/navigation_search_tests.cpp
         oros_ai
     )
 
