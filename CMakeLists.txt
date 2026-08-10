@@ -497,6 +497,7 @@ target_sources(
         engine/ai/src/navigation_cell_topology.cpp
         engine/ai/src/navigation_topology.cpp
         engine/ai/src/navigation_route.cpp
+        engine/ai/src/navigation_traversal.cpp
         engine/ai/src/actor_schedule.cpp
         engine/ai/src/actor_schedule_execution_state.cpp
         engine/ai/src/actor_scheduled_activity.cpp
@@ -1339,6 +1340,13 @@ if(BUILD_TESTING)
         oros_ai_navigation_route_tests
         oros.ai.navigation_route
         tests/ai/navigation_route_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_traversal_tests
+        oros.ai.navigation_traversal
+        tests/ai/navigation_traversal_tests.cpp
         oros_ai
     )
 
