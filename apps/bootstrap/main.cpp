@@ -1,3 +1,4 @@
+#include "live_ai_actor_demo.hpp"
 #include "live_player_demo.hpp"
 #include "navigation_demo.hpp"
 
@@ -476,6 +477,258 @@ int main()
         "supplied two cells; complete and partial "
         "route proofs passed.");
 
+    Result<oros::bootstrap::LiveAiActorDemo>
+        live_ai_actor_demo_result =
+            oros::bootstrap::
+                create_live_ai_actor_demo(
+                    world,
+                    navigation_demo);
+
+    if (!live_ai_actor_demo_result.has_value())
+    {
+        const Error& error =
+            live_ai_actor_demo_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor composition failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI actor composition "
+            << "failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    oros::bootstrap::LiveAiActorDemo
+        live_ai_actor_demo{
+            std::move(
+                live_ai_actor_demo_result.value())
+        };
+
+    const EntityId live_ai_actor_entity =
+        live_ai_actor_demo.actor;
+
+    const oros::ai::NavigationCellTopology*
+        live_ai_navigation_cell =
+            navigation_demo.
+                topology.
+                find_cell_topology(
+                    navigation_demo.
+                        start_node.
+                        cell);
+
+    const oros::ai::NavigationNodeRecord*
+        live_ai_navigation_anchor =
+            nullptr;
+
+    if (live_ai_navigation_cell != nullptr)
+    {
+        for (
+            const oros::ai::
+                NavigationNodeRecord&
+                node :
+            live_ai_navigation_cell->
+                nodes_in_canonical_order())
+        {
+            if (
+                node.id() ==
+                navigation_demo.start_node)
+            {
+                live_ai_navigation_anchor =
+                    &node;
+
+                break;
+            }
+        }
+    }
+
+    const WorldPosition*
+        live_ai_actor_position =
+            world.find_position(
+                live_ai_actor_entity);
+
+    const auto&
+        live_ai_persistent_intent =
+            live_ai_actor_demo.
+                schedule_execution.
+                persistent_intent();
+
+    const auto
+        live_ai_memberships =
+            live_ai_actor_demo.
+                faction_memberships.
+                memberships_in_canonical_order();
+
+    Result<
+        oros::ai::ActorSimulationFidelity>
+        live_ai_fidelity_result =
+            live_ai_actor_demo.
+                fidelity_registry.
+                fidelity(
+                    live_ai_actor_entity);
+
+    Result<oros::ai::NavigationSearchResult>
+        live_ai_navigation_result =
+            oros::ai::
+                search_navigation_route(
+                    navigation_demo.topology,
+                    navigation_overlay,
+                    navigation_demo.start_node,
+                    navigation_demo.
+                        complete_destination);
+
+    if (!live_ai_navigation_result.has_value())
+    {
+        const Error& error =
+            live_ai_navigation_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor navigation proof "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI actor navigation "
+            << "proof failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const oros::ai::NavigationRoute*
+        live_ai_route =
+            live_ai_navigation_result.
+                value().
+                route();
+
+    bool
+        live_ai_route_starts_at_anchor =
+            false;
+
+    if (live_ai_route != nullptr)
+    {
+        const auto route_nodes =
+            live_ai_route->
+                nodes_in_traversal_order();
+
+        live_ai_route_starts_at_anchor =
+            !route_nodes.empty() &&
+            route_nodes.front() ==
+                navigation_demo.start_node;
+    }
+
+    const bool
+        live_ai_actor_contract_valid =
+            live_ai_actor_entity.is_valid() &&
+            live_ai_actor_entity !=
+                bootstrap_entity &&
+            live_ai_actor_entity !=
+                player_entity &&
+            live_ai_actor_entity !=
+                floor_entity &&
+            world.contains(
+                live_ai_actor_entity) &&
+            live_ai_navigation_anchor !=
+                nullptr &&
+            live_ai_actor_position !=
+                nullptr &&
+            *live_ai_actor_position ==
+                live_ai_navigation_anchor->
+                    position() &&
+            live_ai_actor_demo.
+                    schedule.
+                    size() ==
+                1U &&
+            live_ai_actor_demo.
+                    schedule_execution.
+                    actor() ==
+                live_ai_actor_entity &&
+            live_ai_persistent_intent.
+                has_value() &&
+            live_ai_persistent_intent->
+                    intent_namespace() ==
+                "oros" &&
+            live_ai_persistent_intent->
+                    intent_name() ==
+                "work" &&
+            !live_ai_actor_demo.
+                schedule_execution.
+                is_interrupted() &&
+            live_ai_memberships.size() ==
+                1U &&
+            live_ai_memberships.front().
+                    actor() ==
+                live_ai_actor_entity &&
+            live_ai_memberships.front().
+                    faction().
+                    faction_namespace() ==
+                "oros" &&
+            live_ai_memberships.front().
+                    faction().
+                    faction_name() ==
+                "citizens" &&
+            live_ai_fidelity_result.
+                has_value() &&
+            live_ai_fidelity_result.
+                    value() ==
+                oros::ai::
+                    ActorSimulationFidelity::
+                        deep_local &&
+            live_ai_navigation_result.
+                    value().kind() ==
+                oros::ai::
+                    NavigationSearchResultKind::
+                        complete &&
+            live_ai_route_starts_at_anchor;
+
+    if (!live_ai_actor_contract_valid)
+    {
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor composition did not "
+            "preserve the ratified World/schedule/"
+            "faction/fidelity/navigation contract.");
+
+        std::cerr
+            << "OROS live AI actor composition "
+            << "contract failed.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    write_log(
+        LogLevel::info,
+        "ai",
+        "Live AI actor " +
+            oros::world::to_string(
+                live_ai_actor_entity) +
+            " composed with World-owned position, "
+            "schedule intent, faction membership, "
+            "deep-local fidelity, and navigation "
+            "proof.");
+
     const WorldPosition* initial_player_position =
         world.find_position(
             player_entity);
@@ -821,6 +1074,10 @@ int main()
 
                         std::cout
                             << "Navigation partial proof: "
+                            << "PASS\n";
+
+                        std::cout
+                            << "Live AI actor composition: "
                             << "PASS\n";
 
                         std::cout
