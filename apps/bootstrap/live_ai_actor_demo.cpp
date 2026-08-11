@@ -4,6 +4,9 @@
 #include "oros/ai/actor_faction_membership.hpp"
 #include "oros/ai/actor_scheduled_activity.hpp"
 #include "oros/ai/actor_schedule_window.hpp"
+#include "oros/ai/actor_simulation_focus_decision_set.hpp"
+#include "oros/ai/actor_simulation_focus_decision_set_application.hpp"
+#include "oros/ai/actor_simulation_position_snapshot_set.hpp"
 #include "oros/ai/faction_key.hpp"
 #include "oros/ai/navigation_node_record.hpp"
 #include "oros/world/world_time.hpp"
@@ -324,5 +327,135 @@ namespace oros::bootstrap
             std::move(
                 fidelity_registry)
         };
+    }
+
+    foundation::Result<
+        ai::ActorSimulationFidelityTransition>
+    apply_live_ai_actor_simulation_focus(
+        world::World& world,
+        LiveAiActorDemo& actor_demo,
+        const ai::ActorSimulationFocusPolicy& policy,
+        const ai::ActorSimulationFocusSourceRegistry&
+            focus_sources)
+    {
+        if (
+            !actor_demo.actor.is_valid() ||
+            !world.contains(
+                actor_demo.actor) ||
+            actor_demo.
+                    fidelity_registry.
+                    size() !=
+                1U ||
+            !actor_demo.
+                fidelity_registry.
+                contains(
+                    actor_demo.actor))
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_state,
+                "Live AI actor focus application "
+                "requires one World-owned actor "
+                "with one matching fidelity state.");
+        }
+
+        const world::WorldPosition*
+            actor_position =
+                world.find_position(
+                    actor_demo.actor);
+
+        if (
+            actor_position == nullptr ||
+            !actor_position->is_normalized())
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_state,
+                "Live AI actor focus application "
+                "requires an authoritative "
+                "normalized WorldPosition.");
+        }
+
+        ai::ActorSimulationPositionSnapshotSet
+            position_snapshots{};
+
+        foundation::Status
+            snapshot_status =
+                position_snapshots.insert(
+                    actor_demo.actor,
+                    *actor_position);
+
+        if (!snapshot_status.has_value())
+        {
+            return foundation::fail(
+                snapshot_status.error().code,
+                snapshot_status.error().message);
+        }
+
+        foundation::Result<
+            ai::ActorSimulationFocusDecisionSet>
+            decision_set_result =
+                ai::ActorSimulationFocusDecisionSet::
+                    evaluate(
+                        policy,
+                        actor_demo.
+                            fidelity_registry,
+                        position_snapshots,
+                        focus_sources);
+
+        if (!decision_set_result.has_value())
+        {
+            return foundation::fail(
+                decision_set_result.error().code,
+                decision_set_result.error().message);
+        }
+
+        const ai::ActorSimulationFocusDecisionSet&
+            decision_set =
+                decision_set_result.value();
+
+        const auto decisions =
+            decision_set.
+                decisions_in_entity_order();
+
+        if (
+            decisions.size() != 1U ||
+            decisions.front().actor() !=
+                actor_demo.actor ||
+            decisions.front().transition() ==
+                ai::
+                    ActorSimulationFidelityTransition::
+                        invalid)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    internal_failure,
+                "Live AI actor focus evaluation "
+                "did not produce exactly one valid "
+                "decision for the live actor.");
+        }
+
+        const ai::
+            ActorSimulationFidelityTransition
+            transition =
+                decisions.front().
+                    transition();
+
+        foundation::Status
+            application_status =
+                ai::
+                    apply_actor_simulation_focus_decision_set_if_fidelities_match(
+                        actor_demo.
+                            fidelity_registry,
+                        decision_set);
+
+        if (!application_status.has_value())
+        {
+            return foundation::fail(
+                application_status.error().code,
+                application_status.error().message);
+        }
+
+        return transition;
     }
 }

@@ -729,6 +729,505 @@ int main()
             "deep-local fidelity, and navigation "
             "proof.");
 
+    Status
+        live_ai_interruption_status =
+            live_ai_actor_demo.
+                schedule_execution.
+                begin_interruption();
+
+    if (!live_ai_interruption_status.has_value())
+    {
+        const Error& error =
+            live_ai_interruption_status.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor interruption proof "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI actor interruption "
+            << "proof failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const WorldPosition
+        live_ai_transfer_position =
+            *live_ai_actor_position;
+
+    Result<
+        oros::ai::ActorSimulationFocusPolicy>
+        live_ai_focus_policy_result =
+            oros::ai::
+                ActorSimulationFocusPolicy::
+                    create(
+                        oros::world::
+                                world_cell_extent_meters *
+                            2.0,
+                        oros::world::
+                                world_cell_extent_meters *
+                            2.0);
+
+    if (!live_ai_focus_policy_result.has_value())
+    {
+        const Error& error =
+            live_ai_focus_policy_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor fidelity policy "
+            "creation failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI actor fidelity policy "
+            << "creation failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const oros::ai::
+        ActorSimulationFocusSourceRegistry
+        empty_live_ai_focus_sources{};
+
+    Result<
+        oros::ai::
+            ActorSimulationFidelityTransition>
+        live_ai_demotion_result =
+            oros::bootstrap::
+                apply_live_ai_actor_simulation_focus(
+                    world,
+                    live_ai_actor_demo,
+                    live_ai_focus_policy_result.
+                        value(),
+                    empty_live_ai_focus_sources);
+
+    if (
+        !live_ai_demotion_result.has_value() ||
+        live_ai_demotion_result.value() !=
+            oros::ai::
+                ActorSimulationFidelityTransition::
+                    demotion_to_statistical_distant)
+    {
+        if (!live_ai_demotion_result.has_value())
+        {
+            const Error& error =
+                live_ai_demotion_result.error();
+
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Live AI actor deterministic "
+                "demotion failed: [" +
+                    std::string{
+                        to_string(error.code)} +
+                    "] " +
+                    error.message);
+
+            std::cerr
+                << "OROS live AI actor demotion "
+                << "failed: ["
+                << to_string(error.code)
+                << "] "
+                << error.message
+                << '\n';
+        }
+        else
+        {
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Live AI actor focus decision did "
+                "not produce the required "
+                "deep-local to statistical-distant "
+                "demotion.");
+
+            std::cerr
+                << "OROS live AI actor demotion "
+                << "transition contract failed.\n";
+        }
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const Result<
+        oros::ai::ActorSimulationFidelity>
+        live_ai_distant_fidelity =
+            live_ai_actor_demo.
+                fidelity_registry.
+                fidelity(
+                    live_ai_actor_entity);
+
+    const WorldPosition*
+        live_ai_distant_position =
+            world.find_position(
+                live_ai_actor_entity);
+
+    const auto&
+        live_ai_distant_intent =
+            live_ai_actor_demo.
+                schedule_execution.
+                persistent_intent();
+
+    const auto
+        live_ai_distant_memberships =
+            live_ai_actor_demo.
+                faction_memberships.
+                memberships_in_canonical_order();
+
+    const bool
+        live_ai_distant_continuity_valid =
+            live_ai_actor_demo.actor ==
+                live_ai_actor_entity &&
+            world.contains(
+                live_ai_actor_entity) &&
+            live_ai_distant_position !=
+                nullptr &&
+            *live_ai_distant_position ==
+                live_ai_transfer_position &&
+            live_ai_distant_fidelity.
+                has_value() &&
+            live_ai_distant_fidelity.
+                    value() ==
+                oros::ai::
+                    ActorSimulationFidelity::
+                        statistical_distant &&
+            live_ai_distant_intent.
+                has_value() &&
+            live_ai_distant_intent->
+                    intent_namespace() ==
+                "oros" &&
+            live_ai_distant_intent->
+                    intent_name() ==
+                "work" &&
+            live_ai_actor_demo.
+                schedule_execution.
+                is_interrupted() &&
+            live_ai_distant_memberships.size() ==
+                1U &&
+            live_ai_distant_memberships.front().
+                    actor() ==
+                live_ai_actor_entity &&
+            live_ai_distant_memberships.front().
+                    faction().
+                    faction_namespace() ==
+                "oros" &&
+            live_ai_distant_memberships.front().
+                    faction().
+                    faction_name() ==
+                "citizens";
+
+    if (!live_ai_distant_continuity_valid)
+    {
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor demotion did not "
+            "preserve meaningful actor continuity.");
+
+        std::cerr
+            << "OROS live AI actor demotion "
+            << "continuity contract failed.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const WorldPosition*
+        live_ai_player_focus_position =
+            world.find_position(
+                player_entity);
+
+    if (live_ai_player_focus_position == nullptr)
+    {
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Player WorldPosition was unavailable "
+            "for the live AI promotion proof.");
+
+        std::cerr
+            << "OROS live AI promotion focus "
+            << "position unavailable.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    oros::ai::
+        ActorSimulationFocusSourceRegistry
+        live_ai_focus_sources{};
+
+    Status
+        live_ai_focus_source_status =
+            live_ai_focus_sources.insert(
+                player_entity,
+                *live_ai_player_focus_position);
+
+    if (!live_ai_focus_source_status.has_value())
+    {
+        const Error& error =
+            live_ai_focus_source_status.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI promotion focus-source "
+            "registration failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI promotion focus "
+            << "registration failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    Result<
+        oros::ai::
+            ActorSimulationFidelityTransition>
+        live_ai_promotion_result =
+            oros::bootstrap::
+                apply_live_ai_actor_simulation_focus(
+                    world,
+                    live_ai_actor_demo,
+                    live_ai_focus_policy_result.
+                        value(),
+                    live_ai_focus_sources);
+
+    if (
+        !live_ai_promotion_result.has_value() ||
+        live_ai_promotion_result.value() !=
+            oros::ai::
+                ActorSimulationFidelityTransition::
+                    promotion_to_deep_local)
+    {
+        if (!live_ai_promotion_result.has_value())
+        {
+            const Error& error =
+                live_ai_promotion_result.error();
+
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Live AI actor deterministic "
+                "promotion failed: [" +
+                    std::string{
+                        to_string(error.code)} +
+                    "] " +
+                    error.message);
+
+            std::cerr
+                << "OROS live AI actor promotion "
+                << "failed: ["
+                << to_string(error.code)
+                << "] "
+                << error.message
+                << '\n';
+        }
+        else
+        {
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Live AI actor focus decision did "
+                "not produce the required "
+                "statistical-distant to deep-local "
+                "promotion.");
+
+            std::cerr
+                << "OROS live AI actor promotion "
+                << "transition contract failed.\n";
+        }
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const Result<
+        oros::ai::ActorSimulationFidelity>
+        live_ai_promoted_fidelity =
+            live_ai_actor_demo.
+                fidelity_registry.
+                fidelity(
+                    live_ai_actor_entity);
+
+    const WorldPosition*
+        live_ai_promoted_position =
+            world.find_position(
+                live_ai_actor_entity);
+
+    const auto&
+        live_ai_promoted_intent =
+            live_ai_actor_demo.
+                schedule_execution.
+                persistent_intent();
+
+    const auto
+        live_ai_promoted_memberships =
+            live_ai_actor_demo.
+                faction_memberships.
+                memberships_in_canonical_order();
+
+    Result<oros::ai::NavigationSearchResult>
+        live_ai_post_promotion_navigation =
+            oros::ai::
+                search_navigation_route(
+                    navigation_demo.topology,
+                    navigation_overlay,
+                    navigation_demo.start_node,
+                    navigation_demo.
+                        complete_destination);
+
+    const oros::ai::NavigationRoute*
+        live_ai_post_promotion_route =
+            live_ai_post_promotion_navigation.
+                    has_value()
+                ? live_ai_post_promotion_navigation.
+                      value().
+                      route()
+                : nullptr;
+
+    bool
+        live_ai_post_promotion_route_valid =
+            false;
+
+    if (live_ai_post_promotion_route != nullptr)
+    {
+        const auto route_nodes =
+            live_ai_post_promotion_route->
+                nodes_in_traversal_order();
+
+        live_ai_post_promotion_route_valid =
+            !route_nodes.empty() &&
+            route_nodes.front() ==
+                navigation_demo.start_node;
+    }
+
+    const bool
+        live_ai_promotion_continuity_valid =
+            live_ai_actor_demo.actor ==
+                live_ai_actor_entity &&
+            live_ai_promoted_position !=
+                nullptr &&
+            *live_ai_promoted_position ==
+                live_ai_transfer_position &&
+            live_ai_promoted_fidelity.
+                has_value() &&
+            live_ai_promoted_fidelity.
+                    value() ==
+                oros::ai::
+                    ActorSimulationFidelity::
+                        deep_local &&
+            live_ai_promoted_intent.
+                has_value() &&
+            live_ai_promoted_intent->
+                    intent_namespace() ==
+                "oros" &&
+            live_ai_promoted_intent->
+                    intent_name() ==
+                "work" &&
+            live_ai_actor_demo.
+                schedule_execution.
+                is_interrupted() &&
+            live_ai_promoted_memberships.size() ==
+                1U &&
+            live_ai_promoted_memberships.front().
+                    actor() ==
+                live_ai_actor_entity &&
+            live_ai_promoted_memberships.front().
+                    faction().
+                    faction_namespace() ==
+                "oros" &&
+            live_ai_promoted_memberships.front().
+                    faction().
+                    faction_name() ==
+                "citizens" &&
+            live_ai_post_promotion_navigation.
+                    has_value() &&
+            live_ai_post_promotion_navigation.
+                    value().kind() ==
+                oros::ai::
+                    NavigationSearchResultKind::
+                        complete &&
+            live_ai_post_promotion_route_valid;
+
+    if (!live_ai_promotion_continuity_valid)
+    {
+        if (
+            !live_ai_post_promotion_navigation.
+                has_value())
+        {
+            const Error& error =
+                live_ai_post_promotion_navigation.
+                    error();
+
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Fresh post-promotion navigation "
+                "query failed: [" +
+                    std::string{
+                        to_string(error.code)} +
+                    "] " +
+                    error.message);
+        }
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor promotion did not "
+            "preserve meaningful actor continuity "
+            "and reacquire derived navigation.");
+
+        std::cerr
+            << "OROS live AI actor promotion "
+            << "continuity contract failed.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    write_log(
+        LogLevel::info,
+        "ai",
+        "Live AI actor completed deterministic "
+        "deep-local -> statistical-distant -> "
+        "deep-local fidelity round trip while "
+        "preserving identity, World position, "
+        "persistent interrupted intent, and faction "
+        "membership; navigation was freshly "
+        "reacquired after promotion.");
+
     const WorldPosition* initial_player_position =
         world.find_position(
             player_entity);
@@ -1078,6 +1577,10 @@ int main()
 
                         std::cout
                             << "Live AI actor composition: "
+                            << "PASS\n";
+
+                        std::cout
+                            << "Live AI actor fidelity round trip: "
                             << "PASS\n";
 
                         std::cout

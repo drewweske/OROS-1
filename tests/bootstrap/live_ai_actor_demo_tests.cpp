@@ -390,6 +390,382 @@ int main()
                 navigation_demo.start_node,
         "Actor-on-behalf route begins at navigation start node");
 
+    const EntityId
+        continuity_actor =
+            actor_demo.actor;
+
+    const WorldPosition
+        continuity_position =
+            *actor_position;
+
+    Status
+        interruption_status =
+            actor_demo.
+                schedule_execution.
+                begin_interruption();
+
+    check(
+        state,
+        interruption_status.has_value(),
+        "Live AI actor schedule interruption begins");
+
+    if (!interruption_status.has_value())
+    {
+        return 1;
+    }
+
+    const auto&
+        interrupted_intent =
+            actor_demo.
+                schedule_execution.
+                persistent_intent();
+
+    check(
+        state,
+        interrupted_intent.has_value() &&
+            interrupted_intent->
+                    intent_namespace() ==
+                "oros" &&
+            interrupted_intent->
+                    intent_name() ==
+                "work" &&
+            actor_demo.
+                schedule_execution.
+                is_interrupted(),
+        "Interrupted actor retains persistent oros work intent");
+
+    Result<ActorSimulationFocusPolicy>
+        focus_policy_result =
+            ActorSimulationFocusPolicy::
+                create(
+                    1.0,
+                    2.0);
+
+    check(
+        state,
+        focus_policy_result.has_value(),
+        "Fidelity round-trip focus policy constructs");
+
+    if (!focus_policy_result.has_value())
+    {
+        return 1;
+    }
+
+    const ActorSimulationFocusSourceRegistry
+        empty_focus_sources{};
+
+    Result<
+        ActorSimulationFidelityTransition>
+        demotion_result =
+            apply_live_ai_actor_simulation_focus(
+                world,
+                actor_demo,
+                focus_policy_result.value(),
+                empty_focus_sources);
+
+    check(
+        state,
+        demotion_result.has_value() &&
+            demotion_result.value() ==
+                ActorSimulationFidelityTransition::
+                    demotion_to_statistical_distant,
+        "Empty focus deterministically demotes live actor");
+
+    if (!demotion_result.has_value())
+    {
+        return 1;
+    }
+
+    const Result<
+        ActorSimulationFidelity>
+        distant_fidelity_result =
+            actor_demo.
+                fidelity_registry.
+                fidelity(
+                    actor_demo.actor);
+
+    const WorldPosition*
+        distant_actor_position =
+            world.find_position(
+                actor_demo.actor);
+
+    const auto&
+        distant_intent =
+            actor_demo.
+                schedule_execution.
+                persistent_intent();
+
+    const auto
+        distant_memberships =
+            actor_demo.
+                faction_memberships.
+                memberships_in_canonical_order();
+
+    check(
+        state,
+        actor_demo.actor ==
+                continuity_actor &&
+            world.contains(
+                continuity_actor) &&
+            distant_actor_position !=
+                nullptr &&
+            *distant_actor_position ==
+                continuity_position &&
+            distant_fidelity_result.
+                has_value() &&
+            distant_fidelity_result.
+                    value() ==
+                ActorSimulationFidelity::
+                    statistical_distant,
+        "Demotion preserves actor identity and World position");
+
+    check(
+        state,
+        distant_intent.has_value() &&
+            distant_intent->
+                    intent_namespace() ==
+                "oros" &&
+            distant_intent->
+                    intent_name() ==
+                "work" &&
+            actor_demo.
+                schedule_execution.
+                is_interrupted(),
+        "Demotion preserves persistent interrupted intent");
+
+    check(
+        state,
+        distant_memberships.size() ==
+                1U &&
+            distant_memberships.front().
+                    actor() ==
+                continuity_actor &&
+            distant_memberships.front().
+                    faction().
+                    faction_namespace() ==
+                "oros" &&
+            distant_memberships.front().
+                    faction().
+                    faction_name() ==
+                "citizens",
+        "Demotion preserves faction membership");
+
+    Result<EntityId>
+        focus_entity_result =
+            world.create_entity();
+
+    check(
+        state,
+        focus_entity_result.has_value(),
+        "Stable World focus entity is created");
+
+    if (!focus_entity_result.has_value())
+    {
+        return 1;
+    }
+
+    const EntityId focus_entity =
+        focus_entity_result.value();
+
+    check(
+        state,
+        focus_entity.is_valid() &&
+            focus_entity !=
+                continuity_actor,
+        "Focus entity is distinct from live AI actor");
+
+    Status
+        focus_position_status =
+            world.add_position(
+                focus_entity,
+                continuity_position);
+
+    check(
+        state,
+        focus_position_status.has_value(),
+        "Stable World focus entity receives World position");
+
+    if (!focus_position_status.has_value())
+    {
+        return 1;
+    }
+
+    const WorldPosition*
+        focus_position =
+            world.find_position(
+                focus_entity);
+
+    check(
+        state,
+        focus_position != nullptr &&
+            *focus_position ==
+                continuity_position,
+        "Focus source uses actual World-owned position");
+
+    if (focus_position == nullptr)
+    {
+        return 1;
+    }
+
+    ActorSimulationFocusSourceRegistry
+        focus_sources{};
+
+    Status
+        focus_source_status =
+            focus_sources.insert(
+                focus_entity,
+                *focus_position);
+
+    check(
+        state,
+        focus_source_status.has_value(),
+        "World focus entity enters focus-source registry");
+
+    if (!focus_source_status.has_value())
+    {
+        return 1;
+    }
+
+    Result<
+        ActorSimulationFidelityTransition>
+        promotion_result =
+            apply_live_ai_actor_simulation_focus(
+                world,
+                actor_demo,
+                focus_policy_result.value(),
+                focus_sources);
+
+    check(
+        state,
+        promotion_result.has_value() &&
+            promotion_result.value() ==
+                ActorSimulationFidelityTransition::
+                    promotion_to_deep_local,
+        "Nearby stable focus deterministically promotes live actor");
+
+    if (!promotion_result.has_value())
+    {
+        return 1;
+    }
+
+    const Result<
+        ActorSimulationFidelity>
+        promoted_fidelity_result =
+            actor_demo.
+                fidelity_registry.
+                fidelity(
+                    actor_demo.actor);
+
+    const WorldPosition*
+        promoted_actor_position =
+            world.find_position(
+                actor_demo.actor);
+
+    const auto&
+        promoted_intent =
+            actor_demo.
+                schedule_execution.
+                persistent_intent();
+
+    const auto
+        promoted_memberships =
+            actor_demo.
+                faction_memberships.
+                memberships_in_canonical_order();
+
+    check(
+        state,
+        actor_demo.actor ==
+                continuity_actor &&
+            promoted_actor_position !=
+                nullptr &&
+            *promoted_actor_position ==
+                continuity_position &&
+            promoted_fidelity_result.
+                has_value() &&
+            promoted_fidelity_result.
+                    value() ==
+                ActorSimulationFidelity::
+                    deep_local,
+        "Promotion restores deep_local without changing identity or position");
+
+    check(
+        state,
+        promoted_intent.has_value() &&
+            promoted_intent->
+                    intent_namespace() ==
+                "oros" &&
+            promoted_intent->
+                    intent_name() ==
+                "work" &&
+            actor_demo.
+                schedule_execution.
+                is_interrupted(),
+        "Promotion preserves persistent interrupted intent");
+
+    check(
+        state,
+        promoted_memberships.size() ==
+                1U &&
+            promoted_memberships.front().
+                    actor() ==
+                continuity_actor &&
+            promoted_memberships.front().
+                    faction().
+                    faction_namespace() ==
+                "oros" &&
+            promoted_memberships.front().
+                    faction().
+                    faction_name() ==
+                "citizens",
+        "Promotion preserves faction membership");
+
+    Result<NavigationSearchResult>
+        post_promotion_navigation_result =
+            search_navigation_route(
+                navigation_demo.topology,
+                empty_overlay,
+                navigation_demo.start_node,
+                navigation_demo.
+                    complete_destination);
+
+    check(
+        state,
+        post_promotion_navigation_result.
+                has_value() &&
+            post_promotion_navigation_result.
+                value().kind() ==
+            NavigationSearchResultKind::
+                complete &&
+            post_promotion_navigation_result.
+                value().route() !=
+            nullptr,
+        "Navigation is freshly reacquired after promotion");
+
+    if (
+        !post_promotion_navigation_result.
+            has_value() ||
+        post_promotion_navigation_result.
+            value().route() ==
+            nullptr)
+    {
+        return 1;
+    }
+
+    const auto
+        post_promotion_route_nodes =
+            post_promotion_navigation_result.
+                value().
+                route()->
+                nodes_in_traversal_order();
+
+    check(
+        state,
+        !post_promotion_route_nodes.empty() &&
+            post_promotion_route_nodes.front() ==
+                navigation_demo.start_node,
+        "Reacquired route begins at live actor navigation anchor");
+
     NavigationDemo
         malformed_navigation =
             navigation_demo;
