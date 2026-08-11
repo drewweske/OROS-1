@@ -548,12 +548,14 @@ target_sources(
     PRIVATE
         apps/bootstrap/live_player_demo.cpp
         apps/bootstrap/main.cpp
+        apps/bootstrap/navigation_demo.cpp
         apps/bootstrap/physical_world_demo.cpp
 )
 
 target_link_libraries(
     oros_bootstrap
     PRIVATE
+        oros_ai
         oros_foundation
         oros_physical_world
         oros_physics
@@ -1372,6 +1374,25 @@ if(BUILD_TESTING)
         oros.ai.navigation_search
         tests/ai/navigation_search_tests.cpp
         oros_ai
+    )
+
+    oros_add_test_target(
+        oros_bootstrap_navigation_demo_tests
+        oros.bootstrap.navigation_demo
+        tests/bootstrap/navigation_demo_tests.cpp
+        oros_ai
+    )
+
+    target_sources(
+        oros_bootstrap_navigation_demo_tests
+        PRIVATE
+            apps/bootstrap/navigation_demo.cpp
+    )
+
+    target_include_directories(
+        oros_bootstrap_navigation_demo_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
     )
 
     oros_add_test_target(

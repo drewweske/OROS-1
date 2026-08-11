@@ -1,5 +1,8 @@
 #include "live_player_demo.hpp"
+#include "navigation_demo.hpp"
 
+#include "oros/ai/navigation_obstacle_overlay.hpp"
+#include "oros/ai/navigation_search.hpp"
 #include "oros/foundation/clock.hpp"
 #include "oros/foundation/log.hpp"
 #include "oros/physical_world/world_first_person_controller.hpp"
@@ -321,6 +324,157 @@ int main()
 
     const auto& physical_world_demo =
         live_player_demo.physical_world;
+
+    Result<oros::bootstrap::NavigationDemo>
+        navigation_demo_result =
+            oros::bootstrap::
+                create_navigation_demo();
+
+    if (!navigation_demo_result.has_value())
+    {
+        const Error& error =
+            navigation_demo_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "navigation",
+            "Bootstrap navigation topology creation "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS bootstrap navigation topology "
+            << "creation failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    oros::bootstrap::NavigationDemo
+        navigation_demo{
+            std::move(
+                navigation_demo_result.value())
+        };
+
+    const oros::ai::
+        NavigationObstacleOverlay
+        navigation_overlay{};
+
+    Result<oros::ai::NavigationSearchResult>
+        complete_navigation_result =
+            oros::ai::
+                search_navigation_route(
+                    navigation_demo.topology,
+                    navigation_overlay,
+                    navigation_demo.start_node,
+                    navigation_demo.
+                        complete_destination);
+
+    if (!complete_navigation_result.has_value())
+    {
+        const Error& error =
+            complete_navigation_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "navigation",
+            "Bootstrap complete navigation proof "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS complete navigation proof "
+            << "failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    Result<oros::ai::NavigationSearchResult>
+        partial_navigation_result =
+            oros::ai::
+                search_navigation_route(
+                    navigation_demo.topology,
+                    navigation_overlay,
+                    navigation_demo.start_node,
+                    navigation_demo.
+                        partial_destination);
+
+    if (!partial_navigation_result.has_value())
+    {
+        const Error& error =
+            partial_navigation_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "navigation",
+            "Bootstrap partial navigation proof "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS partial navigation proof "
+            << "failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    if (
+        navigation_demo.topology.size() != 2U ||
+        complete_navigation_result.
+                value().kind() !=
+            oros::ai::
+                NavigationSearchResultKind::
+                    complete ||
+        partial_navigation_result.
+                value().kind() !=
+            oros::ai::
+                NavigationSearchResultKind::
+                    partial)
+    {
+        write_log(
+            LogLevel::critical,
+            "navigation",
+            "Bootstrap navigation composition did "
+            "not preserve the ratified complete/"
+            "partial proof contract.");
+
+        std::cerr
+            << "OROS bootstrap navigation proof "
+            << "contract failed.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    write_log(
+        LogLevel::info,
+        "navigation",
+        "Authored bootstrap navigation topology "
+        "supplied two cells; complete and partial "
+        "route proofs passed.");
 
     const WorldPosition* initial_player_position =
         world.find_position(
@@ -653,6 +807,21 @@ int main()
                                 registry.
                                 collider_count()
                             << '\n';
+
+                        std::cout
+                            << "Navigation supplied cells: "
+                            << navigation_demo.
+                                topology.
+                                size()
+                            << '\n';
+
+                        std::cout
+                            << "Navigation complete proof: "
+                            << "PASS\n";
+
+                        std::cout
+                            << "Navigation partial proof: "
+                            << "PASS\n";
 
                         std::cout
                             << "Renderer: Direct3D 12\n";
