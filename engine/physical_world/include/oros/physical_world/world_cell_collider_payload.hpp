@@ -33,7 +33,7 @@ namespace oros::physical_world
 
     inline constexpr std::uint32_t
         world_cell_collider_payload_schema_version{
-            1U
+            2U
         };
 
     inline constexpr std::uint64_t

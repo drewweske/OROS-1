@@ -604,7 +604,7 @@ int main()
             boundary_collider,
             boundary_sphere_result.value(),
             PhysicsVector3{
-                -500.0,
+                -489.0,
                 0.0,
                 0.0
             });
@@ -722,7 +722,7 @@ int main()
         WorldPosition::create(
             origin_cell.cell,
             LocalPosition{
-                500.0,
+                511.0,
                 0.0,
                 0.0
             });

@@ -1294,7 +1294,7 @@ int main()
             ErrorCode::invalid_state,
         "Nanosecond-rounded default tick preserves deterministic substep boundary");
 
-    const ColliderId boundary_floor_id{
+    const ColliderId boundary_left_floor_id{
         EntityId{
             world_namespace,
             300ULL
@@ -1302,10 +1302,26 @@ int main()
         1U
     };
 
+    const ColliderId boundary_right_floor_id{
+        EntityId{
+            world_namespace,
+            300ULL
+        },
+        2U
+    };
+
+    check(
+        state,
+        boundary_left_floor_id.owner ==
+                boundary_right_floor_id.owner &&
+            boundary_left_floor_id.shape_slot !=
+                boundary_right_floor_id.shape_slot,
+        "Cross-cell support proxies share one logical entity identity");
+
     const auto boundary_floor_shape_result =
         BoxShape::create(
             PhysicsVector3{
-                20.0,
+                16.0,
                 0.5,
                 10.0
             });
@@ -1313,138 +1329,211 @@ int main()
     check(
         state,
         boundary_floor_shape_result.has_value(),
-        "Cross-cell controller floor shape is created");
+        "Cross-cell controller floor proxy shape is created");
 
     if (!boundary_floor_shape_result.has_value())
     {
         return finish(state);
     }
 
-    const auto boundary_floor_geometry_result =
+    const auto boundary_left_geometry_result =
         ColliderGeometry::create(
-            boundary_floor_id,
+            boundary_left_floor_id,
             boundary_floor_shape_result.value(),
             PhysicsVector3{
-                500.0,
+                std::nextafter(
+                    496.0,
+                    0.0),
+                -2.5,
+                0.0
+            });
+
+    const auto boundary_right_geometry_result =
+        ColliderGeometry::create(
+            boundary_right_floor_id,
+            boundary_floor_shape_result.value(),
+            PhysicsVector3{
+                -496.0,
                 -2.5,
                 0.0
             });
 
     check(
         state,
-        boundary_floor_geometry_result.has_value(),
-        "Cross-cell controller floor geometry is created");
+        boundary_left_geometry_result.has_value() &&
+            boundary_right_geometry_result.has_value(),
+        "Cross-cell controller floor proxy geometry is created");
 
-    if (!boundary_floor_geometry_result.has_value())
+    if (!boundary_left_geometry_result.has_value() ||
+        !boundary_right_geometry_result.has_value())
     {
         return finish(state);
     }
 
-    const WorldCellKey boundary_cell_key{
+    const WorldCellKey boundary_left_cell_key{
         world_namespace,
         WorldCell{}
+    };
+
+    const WorldCellKey boundary_right_cell_key{
+        world_namespace,
+        WorldCell{
+            1,
+            0,
+            0
+        }
     };
 
     const std::array<
         ColliderGeometry,
         1U>
-        boundary_colliders{
-            boundary_floor_geometry_result.value()
+        boundary_left_colliders{
+            boundary_left_geometry_result.value()
         };
 
-    const auto boundary_set_result =
+    const std::array<
+        ColliderGeometry,
+        1U>
+        boundary_right_colliders{
+            boundary_right_geometry_result.value()
+        };
+
+    const auto boundary_left_set_result =
         WorldCellColliderSet::create(
-            boundary_cell_key,
+            boundary_left_cell_key,
             std::span<
                 const ColliderGeometry>{
-                    boundary_colliders
+                    boundary_left_colliders
+                });
+
+    const auto boundary_right_set_result =
+        WorldCellColliderSet::create(
+            boundary_right_cell_key,
+            std::span<
+                const ColliderGeometry>{
+                    boundary_right_colliders
                 });
 
     check(
         state,
-        boundary_set_result.has_value(),
-        "Cross-cell controller collider set is created");
+        boundary_left_set_result.has_value() &&
+            boundary_right_set_result.has_value(),
+        "Cross-cell controller collider proxy sets are created");
 
-    if (!boundary_set_result.has_value())
+    if (!boundary_left_set_result.has_value() ||
+        !boundary_right_set_result.has_value())
     {
         return finish(state);
     }
 
-    const auto boundary_payload_result =
+    const auto boundary_left_payload_result =
         serialize_world_cell_collider_payload(
-            boundary_set_result.value());
+            boundary_left_set_result.value());
+
+    const auto boundary_right_payload_result =
+        serialize_world_cell_collider_payload(
+            boundary_right_set_result.value());
 
     check(
         state,
-        boundary_payload_result.has_value(),
-        "Cross-cell controller payload serializes");
+        boundary_left_payload_result.has_value() &&
+            boundary_right_payload_result.has_value(),
+        "Cross-cell controller proxy payloads serialize");
 
-    if (!boundary_payload_result.has_value())
+    if (!boundary_left_payload_result.has_value() ||
+        !boundary_right_payload_result.has_value())
     {
         return finish(state);
     }
 
-    const auto boundary_snapshot_result =
+    const auto boundary_left_snapshot_result =
         WorldCellSnapshot::create(
-            boundary_cell_key,
+            boundary_left_cell_key,
             2ULL,
             std::span<const std::byte>{
-                boundary_payload_result.value()
+                boundary_left_payload_result.value()
+            });
+
+    const auto boundary_right_snapshot_result =
+        WorldCellSnapshot::create(
+            boundary_right_cell_key,
+            3ULL,
+            std::span<const std::byte>{
+                boundary_right_payload_result.value()
             });
 
     check(
         state,
-        boundary_snapshot_result.has_value(),
-        "Cross-cell controller snapshot is created");
+        boundary_left_snapshot_result.has_value() &&
+            boundary_right_snapshot_result.has_value(),
+        "Cross-cell controller proxy snapshots are created");
 
-    if (!boundary_snapshot_result.has_value())
+    if (!boundary_left_snapshot_result.has_value() ||
+        !boundary_right_snapshot_result.has_value())
     {
         return finish(state);
     }
 
-    auto boundary_residency_result =
+    auto boundary_left_residency_result =
         WorldCellResidency::create(
-            boundary_cell_key);
+            boundary_left_cell_key);
+
+    auto boundary_right_residency_result =
+        WorldCellResidency::create(
+            boundary_right_cell_key);
 
     check(
         state,
-        boundary_residency_result.has_value(),
-        "Cross-cell controller residency is created");
+        boundary_left_residency_result.has_value() &&
+            boundary_right_residency_result.has_value(),
+        "Cross-cell controller proxy residencies are created");
 
-    if (!boundary_residency_result.has_value())
+    if (!boundary_left_residency_result.has_value() ||
+        !boundary_right_residency_result.has_value())
     {
         return finish(state);
     }
 
-    WorldCellResidency boundary_residency =
+    WorldCellResidency boundary_left_residency =
         std::move(
-            boundary_residency_result.value());
+            boundary_left_residency_result.value());
+
+    WorldCellResidency boundary_right_residency =
+        std::move(
+            boundary_right_residency_result.value());
 
     check(
         state,
         make_resident(
-            boundary_residency,
-            boundary_snapshot_result.value(),
-            202ULL),
-        "Cross-cell controller cell becomes resident");
+            boundary_left_residency,
+            boundary_left_snapshot_result.value(),
+            202ULL) &&
+            make_resident(
+                boundary_right_residency,
+                boundary_right_snapshot_result.value(),
+                203ULL),
+        "Both cross-cell controller support cells become resident");
 
     WorldCellColliderRegistry boundary_registry{};
 
     check(
         state,
         boundary_registry.synchronize(
-            boundary_residency).
+            boundary_left_residency).
+            has_value() &&
+            boundary_registry.synchronize(
+                boundary_right_residency).
             has_value(),
-        "Cross-cell controller colliders activate");
+        "Both cross-cell controller support proxies activate");
 
     check(
         state,
         boundary_registry.is_valid() &&
             boundary_registry.
-                active_cell_count() == 1U &&
+                active_cell_count() == 2U &&
             boundary_registry.
-                collider_count() == 1U,
-        "Cross-cell controller registry is valid");
+                collider_count() == 2U,
+        "Cross-cell controller registry contains two cell-owned proxies");
 
     const auto boundary_start_result =
         WorldPosition::create(
@@ -1567,8 +1656,8 @@ int main()
             boundary_ground_result.
                 value()->
                 pair().
-                contains(boundary_floor_id),
-        "Cross-cell controller movement remains grounded");
+                contains(boundary_right_floor_id),
+        "Cross-cell controller movement remains grounded on the right-cell proxy");
 
     return finish(state);
 }

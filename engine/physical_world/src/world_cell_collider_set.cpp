@@ -14,30 +14,58 @@ namespace oros::physical_world
     namespace
     {
         [[nodiscard]]
-        bool is_canonical_cell_local_center(
-            const physics::PhysicsVector3 center)
-            noexcept
+        bool is_canonical_cell_local_geometry(
+            const physics::ColliderGeometry&
+                geometry) noexcept
         {
-            return
-                center.is_finite() &&
-                center.x >=
-                    -world::
-                        world_cell_half_extent_meters &&
-                center.x <
-                    world::
-                        world_cell_half_extent_meters &&
-                center.y >=
-                    -world::
-                        world_cell_half_extent_meters &&
-                center.y <
-                    world::
-                        world_cell_half_extent_meters &&
-                center.z >=
-                    -world::
-                        world_cell_half_extent_meters &&
-                center.z <
-                    world::
-                        world_cell_half_extent_meters;
+            try
+            {
+                const auto bounds_result =
+                    geometry.bounds();
+
+                if (!bounds_result.has_value())
+                {
+                    return false;
+                }
+
+                const physics::AxisAlignedBounds&
+                    bounds =
+                        bounds_result.value();
+
+                const physics::PhysicsVector3&
+                    minimum =
+                        bounds.minimum();
+
+                const physics::PhysicsVector3&
+                    maximum =
+                        bounds.maximum();
+
+                return
+                    minimum.is_finite() &&
+                    maximum.is_finite() &&
+                    minimum.x >=
+                        -world::
+                            world_cell_half_extent_meters &&
+                    maximum.x <
+                        world::
+                            world_cell_half_extent_meters &&
+                    minimum.y >=
+                        -world::
+                            world_cell_half_extent_meters &&
+                    maximum.y <
+                        world::
+                            world_cell_half_extent_meters &&
+                    minimum.z >=
+                        -world::
+                            world_cell_half_extent_meters &&
+                    maximum.z <
+                        world::
+                            world_cell_half_extent_meters;
+            }
+            catch (...)
+            {
+                return false;
+            }
         }
 
         [[nodiscard]]
@@ -94,15 +122,16 @@ namespace oros::physical_world
                     "to a different world namespace.");
             }
 
-            if (!is_canonical_cell_local_center(
-                    geometry.center()))
+            if (!is_canonical_cell_local_geometry(
+                    geometry))
             {
                 return foundation::fail(
                     foundation::ErrorCode::
                         invalid_argument,
-                    "World cell collider center must "
-                    "be finite and inside the "
-                    "canonical cell-local range.");
+                    "World cell collider geometry must "
+                    "have finite bounds fully contained "
+                    "inside the canonical cell-local "
+                    "range.");
             }
         }
 
@@ -210,8 +239,8 @@ namespace oros::physical_world
             if (!collider.is_valid() ||
                 collider.owner.world_namespace !=
                     cell_key_.world_namespace ||
-                !is_canonical_cell_local_center(
-                    geometry.center()))
+                !is_canonical_cell_local_geometry(
+                    geometry))
             {
                 return false;
             }
