@@ -301,6 +301,7 @@ target_sources(
         engine/physics/src/capsule_capsule_narrow_phase.cpp
         engine/physics/src/collider_geometry.cpp
         engine/physics/src/collider_id.cpp
+        engine/physics/src/collider_segment_query.cpp
         engine/physics/src/collision_contact.cpp
         engine/physics/src/collision_shape.cpp
         engine/physics/src/collision_shape_bounds.cpp
@@ -725,6 +726,13 @@ if(BUILD_TESTING)
         oros_physics_collider_geometry_tests
         oros.physics.collider_geometry
         tests/physics/collider_geometry_tests.cpp
+        oros_physics
+    )
+
+    oros_add_test_target(
+        oros_physics_collider_segment_query_tests
+        oros.physics.collider_segment_query
+        tests/physics/collider_segment_query_tests.cpp
         oros_physics
     )
 
