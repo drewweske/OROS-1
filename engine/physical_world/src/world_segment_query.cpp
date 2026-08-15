@@ -480,6 +480,53 @@ namespace oros::physical_world
         }
     }
 
+    foundation::Result<
+        WorldSegmentQueryFilter>
+    WorldSegmentQueryFilter::
+    create_excluding_owner(
+        const world::EntityId excluded_owner)
+    {
+        if (!excluded_owner.is_valid())
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_argument,
+                "World segment query owner exclusion "
+                "requires a valid EntityId.");
+        }
+
+        return WorldSegmentQueryFilter{
+            excluded_owner
+        };
+    }
+
+    bool
+    WorldSegmentQueryFilter::is_valid()
+        const noexcept
+    {
+        return
+            !excluded_owner_.has_value() ||
+            excluded_owner_->is_valid();
+    }
+
+    const std::optional<
+        world::EntityId>&
+    WorldSegmentQueryFilter::
+    excluded_owner() const noexcept
+    {
+        return excluded_owner_;
+    }
+
+    WorldSegmentQueryFilter::
+    WorldSegmentQueryFilter(
+        const world::EntityId excluded_owner)
+        noexcept
+        : excluded_owner_{
+              excluded_owner
+          }
+    {
+    }
+
     WorldSegmentQueryResult::
     WorldSegmentQueryResult(
         const WorldSegmentQueryState state,
@@ -635,6 +682,25 @@ namespace oros::physical_world
         const world::WorldPosition&
             segment_end)
     {
+        return query_world_segment(
+            registry,
+            world_namespace,
+            segment_start,
+            segment_end,
+            WorldSegmentQueryFilter{});
+    }
+
+    foundation::Result<
+        WorldSegmentQueryResult>
+    query_world_segment(
+        const WorldCellColliderRegistry& registry,
+        const std::uint64_t world_namespace,
+        const world::WorldPosition&
+            segment_start,
+        const world::WorldPosition&
+            segment_end,
+        const WorldSegmentQueryFilter& filter)
+    {
         if (world_namespace == 0ULL)
         {
             return foundation::fail(
@@ -652,6 +718,29 @@ namespace oros::physical_world
                 "World segment query requires a "
                 "valid physical world collider "
                 "registry.");
+        }
+
+        if (!filter.is_valid())
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_argument,
+                "World segment query requires a "
+                "valid collider filter.");
+        }
+
+        if (
+            filter.excluded_owner().has_value() &&
+            filter.excluded_owner()->
+                    world_namespace !=
+                world_namespace)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_argument,
+                "World segment query excluded owner "
+                "must belong to the queried world "
+                "namespace.");
         }
 
         if (
@@ -752,6 +841,16 @@ namespace oros::physical_world
                 geometry :
             relative_colliders_result.value())
         {
+            if (
+                filter.excluded_owner().
+                    has_value() &&
+                geometry.collider().owner ==
+                    filter.excluded_owner().
+                        value())
+            {
+                continue;
+            }
+
             const auto hit_result =
                 physics::
                     query_collider_segment_hit(

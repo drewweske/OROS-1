@@ -4,6 +4,7 @@
 #include "oros/physical_world/world_cell_collider_registry.hpp"
 #include "oros/physics/collider_segment_query.hpp"
 #include "oros/streaming/world_cell_key.hpp"
+#include "oros/world/entity_id.hpp"
 #include "oros/world/world_position.hpp"
 
 #include <cstdint>
@@ -18,6 +19,39 @@ namespace oros::physical_world
         clear,
         blocked,
         unavailable
+    };
+
+    class WorldSegmentQueryFilter final
+    {
+    public:
+        WorldSegmentQueryFilter() = default;
+
+        [[nodiscard]]
+        static foundation::Result<
+            WorldSegmentQueryFilter>
+        create_excluding_owner(
+            world::EntityId excluded_owner);
+
+        [[nodiscard]]
+        bool is_valid() const noexcept;
+
+        [[nodiscard]]
+        const std::optional<
+            world::EntityId>&
+        excluded_owner() const noexcept;
+
+        bool operator==(
+            const WorldSegmentQueryFilter&)
+            const noexcept = default;
+
+    private:
+        explicit WorldSegmentQueryFilter(
+            world::EntityId excluded_owner)
+            noexcept;
+
+        std::optional<
+            world::EntityId>
+            excluded_owner_{};
     };
 
     class WorldSegmentQueryResult final
@@ -94,4 +128,14 @@ namespace oros::physical_world
         std::uint64_t world_namespace,
         const world::WorldPosition& segment_start,
         const world::WorldPosition& segment_end);
+
+    [[nodiscard]]
+    foundation::Result<
+        WorldSegmentQueryResult>
+    query_world_segment(
+        const WorldCellColliderRegistry& registry,
+        std::uint64_t world_namespace,
+        const world::WorldPosition& segment_start,
+        const world::WorldPosition& segment_end,
+        const WorldSegmentQueryFilter& filter);
 }

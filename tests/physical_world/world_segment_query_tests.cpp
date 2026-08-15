@@ -566,6 +566,333 @@ int main()
                 0.375),
         "Same-cell blocker returns earliest physical hit");
 
+    const EntityId observer_owner{
+        world_namespace,
+        300ULL
+    };
+
+    const ColliderId observer_primary_collider{
+        observer_owner,
+        1U
+    };
+
+    const ColliderId observer_secondary_collider{
+        observer_owner,
+        2U
+    };
+
+    const auto observer_primary_geometry_result =
+        ColliderGeometry::create(
+            observer_primary_collider,
+            CollisionShape{
+                near_shape_result.value()
+            },
+            PhysicsVector3{
+                0.0,
+                0.0,
+                0.0
+            });
+
+    const auto observer_secondary_geometry_result =
+        ColliderGeometry::create(
+            observer_secondary_collider,
+            CollisionShape{
+                near_shape_result.value()
+            },
+            PhysicsVector3{
+                100.0,
+                0.0,
+                0.0
+            });
+
+    check(
+        state,
+        observer_primary_geometry_result.
+                has_value() &&
+            observer_secondary_geometry_result.
+                has_value(),
+        "Owner exclusion collider fixtures are created");
+
+    if (
+        !observer_primary_geometry_result.
+            has_value() ||
+        !observer_secondary_geometry_result.
+            has_value())
+    {
+        return finish(state);
+    }
+
+    const auto invalid_filter_result =
+        WorldSegmentQueryFilter::
+            create_excluding_owner(
+                invalid_entity_id);
+
+    check(
+        state,
+        !invalid_filter_result.has_value() &&
+            invalid_filter_result.
+                    error().code ==
+                ErrorCode::invalid_argument,
+        "World segment filter rejects invalid owner");
+
+    const WorldSegmentQueryFilter default_filter{};
+
+    check(
+        state,
+        default_filter.is_valid() &&
+            !default_filter.
+                excluded_owner().
+                has_value(),
+        "Default world segment filter excludes no owner");
+
+    const auto observer_filter_result =
+        WorldSegmentQueryFilter::
+            create_excluding_owner(
+                observer_owner);
+
+    check(
+        state,
+        observer_filter_result.has_value() &&
+            observer_filter_result.
+                value().
+                is_valid() &&
+            observer_filter_result.
+                value().
+                excluded_owner().
+                has_value() &&
+            observer_filter_result.
+                    value().
+                    excluded_owner().
+                    value() ==
+                observer_owner,
+        "World segment filter preserves excluded EntityId");
+
+    if (!observer_filter_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const EntityId foreign_owner{
+        world_namespace + 1ULL,
+        300ULL
+    };
+
+    const auto foreign_filter_result =
+        WorldSegmentQueryFilter::
+            create_excluding_owner(
+                foreign_owner);
+
+    check(
+        state,
+        foreign_filter_result.has_value(),
+        "Foreign-namespace exclusion filter is structurally valid");
+
+    if (!foreign_filter_result.has_value())
+    {
+        return finish(state);
+    }
+
+    const auto foreign_filter_query_result =
+        query_world_segment(
+            blocked_same_cell_registry,
+            world_namespace,
+            start_result.value(),
+            same_cell_end_result.value(),
+            foreign_filter_result.value());
+
+    check(
+        state,
+        !foreign_filter_query_result.
+                has_value() &&
+            foreign_filter_query_result.
+                    error().code ==
+                ErrorCode::invalid_argument,
+        "World segment query rejects exclusion from another namespace");
+
+    const std::array<
+        ColliderGeometry,
+        2U>
+        observer_only_colliders{
+            observer_primary_geometry_result.value(),
+            observer_secondary_geometry_result.value()
+        };
+
+    const std::array<
+        ColliderGeometry,
+        3U>
+        observer_and_blocker_colliders{
+            observer_primary_geometry_result.value(),
+            observer_secondary_geometry_result.value(),
+            near_geometry_result.value()
+        };
+
+    WorldCellColliderRegistry
+        owner_filter_registry{};
+
+    check(
+        state,
+        activate_cell(
+            owner_filter_registry,
+            cell_zero,
+            std::span<
+                const ColliderGeometry>{
+                    observer_and_blocker_colliders
+                },
+            20ULL,
+            120ULL),
+        "Owner exclusion registry activates");
+
+    const auto unfiltered_owner_result =
+        query_world_segment(
+            owner_filter_registry,
+            world_namespace,
+            start_result.value(),
+            same_cell_end_result.value());
+
+    check(
+        state,
+        unfiltered_owner_result.
+                has_value() &&
+            unfiltered_owner_result.
+                    value().
+                    state() ==
+                WorldSegmentQueryState::blocked &&
+            unfiltered_owner_result.
+                value().
+                hit().
+                has_value() &&
+            unfiltered_owner_result.
+                    value().
+                    hit()->
+                    collider() ==
+                observer_primary_collider &&
+            nearly_equal(
+                unfiltered_owner_result.
+                    value().
+                    hit()->
+                    segment_fraction(),
+                0.0),
+        "Unfiltered query still observes owner start overlap");
+
+    const auto filtered_owner_result =
+        query_world_segment(
+            owner_filter_registry,
+            world_namespace,
+            start_result.value(),
+            same_cell_end_result.value(),
+            observer_filter_result.value());
+
+    check(
+        state,
+        filtered_owner_result.
+                has_value() &&
+            filtered_owner_result.
+                    value().
+                    state() ==
+                WorldSegmentQueryState::blocked &&
+            filtered_owner_result.
+                value().
+                hit().
+                has_value() &&
+            filtered_owner_result.
+                    value().
+                    hit()->
+                    collider() ==
+                near_collider &&
+            nearly_equal(
+                filtered_owner_result.
+                    value().
+                    hit()->
+                    segment_fraction(),
+                0.375),
+        "Owner exclusion ignores every collider shape slot");
+
+    WorldCellColliderRegistry
+        owner_only_registry{};
+
+    check(
+        state,
+        activate_cell(
+            owner_only_registry,
+            cell_zero,
+            std::span<
+                const ColliderGeometry>{
+                    observer_only_colliders
+                },
+            21ULL,
+            121ULL),
+        "Owner-only exclusion registry activates");
+
+    const auto filtered_clear_result =
+        query_world_segment(
+            owner_only_registry,
+            world_namespace,
+            start_result.value(),
+            same_cell_end_result.value(),
+            observer_filter_result.value());
+
+    check(
+        state,
+        filtered_clear_result.
+                has_value() &&
+            filtered_clear_result.
+                    value().
+                    state() ==
+                WorldSegmentQueryState::clear &&
+            !filtered_clear_result.
+                value().
+                hit().
+                has_value(),
+        "Owner exclusion can make a fully resident segment clear");
+
+    WorldCellColliderRegistry
+        filtered_missing_registry{};
+
+    check(
+        state,
+        activate_cell(
+            filtered_missing_registry,
+            cell_zero,
+            std::span<
+                const ColliderGeometry>{
+                    observer_only_colliders
+                },
+            22ULL,
+            122ULL),
+        "Filtered missing-cell registry activates start cell");
+
+    const auto filtered_missing_result =
+        query_world_segment(
+            filtered_missing_registry,
+            world_namespace,
+            start_result.value(),
+            two_cell_end_result.value(),
+            observer_filter_result.value());
+
+    check(
+        state,
+        filtered_missing_result.
+                has_value() &&
+            filtered_missing_result.
+                    value().
+                    state() ==
+                WorldSegmentQueryState::
+                    unavailable &&
+            filtered_missing_result.
+                value().
+                unavailable_cell().
+                has_value() &&
+            filtered_missing_result.
+                    value().
+                    unavailable_cell().
+                    value() ==
+                cell_one &&
+            !filtered_missing_result.
+                value().
+                hit().
+                has_value(),
+        "Owner exclusion does not weaken residency unavailability");
+
     WorldCellColliderRegistry
         cross_clear_registry{};
 
