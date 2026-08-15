@@ -520,6 +520,7 @@ target_sources(
         engine/ai/src/actor_visual_observation.cpp
         engine/ai/src/actor_visual_observation_memory.cpp
         engine/ai/src/actor_visual_perception.cpp
+        engine/ai/src/actor_visual_perception_memory_update.cpp
 )
 
 target_include_directories(
@@ -1199,6 +1200,13 @@ if(BUILD_TESTING)
         oros_ai_actor_visual_perception_tests
         oros.ai.actor_visual_perception
         tests/ai/actor_visual_perception_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_visual_perception_memory_update_tests
+        oros.ai.actor_visual_perception_memory_update
+        tests/ai/actor_visual_perception_memory_update_tests.cpp
         oros_ai
     )
 
