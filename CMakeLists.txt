@@ -517,6 +517,7 @@ target_sources(
         engine/ai/src/actor_simulation_focus_policy.cpp
         engine/ai/src/actor_simulation_focus_source_registry.cpp
         engine/ai/src/actor_vision_profile.cpp
+        engine/ai/src/actor_visual_perception.cpp
 )
 
 target_include_directories(
@@ -529,6 +530,7 @@ target_link_libraries(
     oros_ai
     PUBLIC
         oros_foundation
+        oros_physical_world
         oros_world
 )
 
@@ -1181,6 +1183,13 @@ if(BUILD_TESTING)
         oros_ai_actor_vision_profile_tests
         oros.ai.actor_vision_profile
         tests/ai/actor_vision_profile_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_visual_perception_tests
+        oros.ai.actor_visual_perception
+        tests/ai/actor_visual_perception_tests.cpp
         oros_ai
     )
 
