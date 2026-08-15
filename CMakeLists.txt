@@ -517,6 +517,8 @@ target_sources(
         engine/ai/src/actor_simulation_focus_policy.cpp
         engine/ai/src/actor_simulation_focus_source_registry.cpp
         engine/ai/src/actor_vision_profile.cpp
+        engine/ai/src/actor_visual_observation.cpp
+        engine/ai/src/actor_visual_observation_memory.cpp
         engine/ai/src/actor_visual_perception.cpp
 )
 
@@ -1183,6 +1185,13 @@ if(BUILD_TESTING)
         oros_ai_actor_vision_profile_tests
         oros.ai.actor_vision_profile
         tests/ai/actor_vision_profile_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_visual_observation_memory_tests
+        oros.ai.actor_visual_observation_memory
+        tests/ai/actor_visual_observation_memory_tests.cpp
         oros_ai
     )
 
