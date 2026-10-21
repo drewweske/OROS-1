@@ -1190,6 +1190,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_ai_actor_vision_state_tests
+        oros.ai.actor_vision_state
+        tests/ai/actor_vision_state_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
         oros_ai_actor_visual_observation_memory_tests
         oros.ai.actor_visual_observation_memory
         tests/ai/actor_visual_observation_memory_tests.cpp

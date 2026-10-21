@@ -9,6 +9,7 @@
 #include "oros/ai/actor_simulation_focus_policy.hpp"
 #include "oros/ai/actor_simulation_focus_source_registry.hpp"
 #include "oros/ai/actor_vision_profile.hpp"
+#include "oros/ai/actor_vision_state.hpp"
 #include "oros/ai/actor_visual_observation.hpp"
 #include "oros/ai/actor_visual_observation_memory.hpp"
 #include "oros/ai/actor_visual_perception.hpp"
@@ -20,6 +21,8 @@
 #include "oros/world/entity_id.hpp"
 #include "oros/world/world.hpp"
 #include "oros/world/world_time.hpp"
+
+#include <optional>
 
 namespace oros::bootstrap
 {
@@ -43,6 +46,11 @@ namespace oros::bootstrap
         // of current visibility and simulation fidelity.
         ai::ActorVisualObservationMemory
             visual_memory{};
+
+        // This actor's validated facing and sensing settings.
+        // Initialized during the next composition increment.
+        std::optional<ai::ActorVisionState>
+            vision_state{};
     };
 
     [[nodiscard]]
