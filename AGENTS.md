@@ -28,6 +28,15 @@ OROS 1 is a Windows-first custom C++23 game engine. Current milestone: **OROS-00
 - Distinguish bootstrap demonstration code from a reusable multi-NPC simulation implementation.
 - Respect architecture documents in the repository and project, incrementally; never create speculative large scaffolds all at once.
 
+## Mandatory five-command architecture review cadence
+- The phrase **"Build OROS"** in a user turn counts as one invocation, even when followed by other instructions. Count exactly once per requested development run, not per assistant tool call, commit, CI retry, or partial response.
+- Track invocation numbers in `docs/development/build-oros-runs.md` and update the record in every completed run.
+- **Every fifth invocation (5, 10, 15, ...)** perform a new full-repository structural inventory, module-by-module architecture review, critical-source and test review, CI status analysis, risks, findings and prioritized remediation plan; commit a dated report to `docs/architecture/reviews/`.
+- Run #2 (2026-10-21) establishes an extra baseline review. This does NOT change the next mandatory checkpoint at run #5.
+- A source inventory generated on every CI run is mechanical coverage, not a substitute for the fifth-run architectural reasoning review.
+- If a request explicitly calls for an extra audit, do it regardless of command number.
+- Never claim that a structural inventory is a line-by-line formal security audit. Report sampling limits and what could not be run.
+
 ## When the user says "Build OROS"
 1. Read architecture, current branch, code, tests, and prior CI outcomes.
 2. Choose one bounded coherent next milestone. Implement source plus meaningful automated tests directly on the working GitHub branch.
