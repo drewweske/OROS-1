@@ -1653,23 +1653,8 @@ int main()
                             1.0F
                         };
 
-                        // OROS-009 automatic NPC perception.
-                        // The bootstrap NPC faces +X toward the
-                        // player's initial World-owned position.
-                        const auto npc_forward_result =
-                            oros::ai::ActorVisionDirection::create(
-                                WorldDisplacement{
-                                    1.0, 0.0, 0.0
-                                });
-
-                        const auto npc_profile_result =
-                            oros::ai::ActorVisionProfile::create(
-                                200.0, 120.0);
-
-                        const auto npc_confidence_result =
-                            oros::ai::
-                                ActorVisualObservationConfidence::
-                                    create(1.0);
+                        // OROS-009 fixed-tick perception now uses
+                        // validated actor-owned vision settings.
 
                         oros::ai::ActorVisualPerceptionState
                             previous_npc_vision_state =
@@ -1917,9 +1902,13 @@ int main()
                                     1ULL;
 
                                 const bool vision_ready =
-                                    npc_forward_result.has_value() &&
-                                    npc_profile_result.has_value() &&
-                                    npc_confidence_result.has_value();
+                                    live_ai_actor_demo.
+                                        vision_state.has_value() &&
+                                    live_ai_actor_demo.
+                                        vision_state->is_valid() &&
+                                    live_ai_actor_demo.
+                                        vision_state->actor() ==
+                                    live_ai_actor_demo.actor;
 
                                 const auto step_ns =
                                     simulation_step.count();
@@ -1973,10 +1962,7 @@ int main()
                                             live_ai_actor_demo,
                                             physical_world_demo.registry,
                                             player_entity,
-                                            npc_forward_result.value(),
-                                            npc_profile_result.value(),
-                                            observation_time,
-                                            npc_confidence_result.value());
+                                            observation_time);
 
                                 if (!perception_result.has_value())
                                 {

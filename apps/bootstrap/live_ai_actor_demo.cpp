@@ -317,6 +317,57 @@ namespace oros::bootstrap
                     fidelity_status.error()));
         }
 
+        // Bootstrap defaults are validated at composition and
+        // retained by the actor across simulation-fidelity changes.
+        const auto forward_result =
+            ai::ActorVisionDirection::create(
+                world::WorldDisplacement{
+                    1.0, 0.0, 0.0
+                });
+
+        if (!forward_result.has_value())
+        {
+            return rollback_actor_and_fail(
+                world, actor,
+                std::move(forward_result.error()));
+        }
+
+        const auto profile_result =
+            ai::ActorVisionProfile::create(
+                200.0, 120.0);
+
+        if (!profile_result.has_value())
+        {
+            return rollback_actor_and_fail(
+                world, actor,
+                std::move(profile_result.error()));
+        }
+
+        const auto confidence_result =
+            ai::ActorVisualObservationConfidence::create(
+                1.0);
+
+        if (!confidence_result.has_value())
+        {
+            return rollback_actor_and_fail(
+                world, actor,
+                std::move(confidence_result.error()));
+        }
+
+        auto vision_state_result =
+            ai::ActorVisionState::create(
+                actor,
+                forward_result.value(),
+                profile_result.value(),
+                confidence_result.value());
+
+        if (!vision_state_result.has_value())
+        {
+            return rollback_actor_and_fail(
+                world, actor,
+                std::move(vision_state_result.error()));
+        }
+
         return LiveAiActorDemo{
             actor,
             std::move(schedule),
@@ -325,8 +376,9 @@ namespace oros::bootstrap
                     value()),
             std::move(
                 faction_memberships),
-            std::move(
-                fidelity_registry)
+            std::move(fidelity_registry),
+            ai::ActorVisualObservationMemory{},
+            std::move(vision_state_result.value())
         };
     }
 
@@ -602,5 +654,36 @@ namespace oros::bootstrap
         }
 
         return perception_result.value();
+    }
+
+    foundation::Result<
+        ai::ActorVisualPerceptionState>
+    observe_live_ai_actor_target(
+        const world::World& world,
+        LiveAiActorDemo& actor_demo,
+        const physical_world::
+            WorldCellColliderRegistry& colliders,
+        const world::EntityId target,
+        const world::WorldTime observed_at)
+    {
+        if (
+            !actor_demo.vision_state.has_value() ||
+            !actor_demo.vision_state->is_valid() ||
+            actor_demo.vision_state->actor() !=
+                actor_demo.actor)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::invalid_state,
+                "Actor-owned visual observation requires "
+                "a valid vision state matching the observer.");
+        }
+
+        const ai::ActorVisionState& vision =
+            *actor_demo.vision_state;
+
+        return observe_live_ai_actor_target(
+            world, actor_demo, colliders, target,
+            vision.forward(), vision.profile(),
+            observed_at, vision.confidence());
     }
 }

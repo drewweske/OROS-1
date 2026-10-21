@@ -48,7 +48,7 @@ namespace oros::bootstrap
             visual_memory{};
 
         // This actor's validated facing and sensing settings.
-        // Initialized during the next composition increment.
+        // Initialized during actor composition.
         std::optional<ai::ActorVisionState>
             vision_state{};
     };
@@ -90,4 +90,17 @@ namespace oros::bootstrap
         world::WorldTime observed_at,
         ai::ActorVisualObservationConfidence
             confidence);
+
+    // Use actor-owned vision settings for fixed-tick observations.
+    // Rejects missing or mismatched actor vision state.
+    [[nodiscard]]
+    foundation::Result<
+        ai::ActorVisualPerceptionState>
+    observe_live_ai_actor_target(
+        const world::World& world,
+        LiveAiActorDemo& actor_demo,
+        const physical_world::
+            WorldCellColliderRegistry& colliders,
+        world::EntityId target,
+        world::WorldTime observed_at);
 }

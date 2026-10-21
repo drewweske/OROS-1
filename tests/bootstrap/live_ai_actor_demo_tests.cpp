@@ -269,6 +269,27 @@ int main()
 
     check(
         state,
+        actor_demo.vision_state.has_value() &&
+            actor_demo.vision_state->is_valid() &&
+            actor_demo.vision_state->actor() ==
+                actor_demo.actor &&
+            actor_demo.vision_state->forward().vector().x ==
+                1.0 &&
+            actor_demo.vision_state->profile().
+                maximum_range_meters() == 200.0 &&
+            actor_demo.vision_state->profile().
+                field_of_view_degrees() == 120.0 &&
+            actor_demo.vision_state->confidence().value() ==
+                1.0,
+        "Live actor composition initializes validated actor-owned vision");
+
+    if (!actor_demo.vision_state.has_value())
+    {
+        return 1;
+    }
+
+    check(
+        state,
         world.entity_count() == 1U &&
             world.position_count() == 1U,
         "Focused fixture owns exactly one World actor and position");
@@ -483,6 +504,57 @@ int main()
         continuity_position =
             *actor_position;
 
+    // Customize this NPC before the distant-fidelity transition.
+    // The resulting vision is persistent actor knowledge, not
+    // a parameter manufactured by the application loop.
+    const auto rotated_forward =
+        ActorVisionDirection::create(
+            WorldDisplacement{0.0, 0.0, 1.0});
+
+    const auto tuned_profile =
+        ActorVisionProfile::create(
+            75.0, 80.0);
+
+    const auto tuned_confidence =
+        ActorVisualObservationConfidence::create(
+            0.6);
+
+    check(
+        state,
+        rotated_forward.has_value() &&
+            tuned_profile.has_value() &&
+            tuned_confidence.has_value(),
+        "Customized actor vision fixtures construct");
+
+    if (
+        !rotated_forward.has_value() ||
+        !tuned_profile.has_value() ||
+        !tuned_confidence.has_value())
+    {
+        return 1;
+    }
+
+    const auto face_status =
+        actor_demo.vision_state->face(
+            rotated_forward.value());
+
+    const auto profile_status =
+        actor_demo.vision_state->set_profile(
+            tuned_profile.value());
+
+    const auto confidence_status =
+        actor_demo.vision_state->set_confidence(
+            tuned_confidence.value());
+
+    check(
+        state,
+        face_status.has_value() &&
+            profile_status.has_value() &&
+            confidence_status.has_value() &&
+            actor_demo.vision_state->is_valid(),
+        "NPC vision can be configured without replacing actor identity");
+
+
     Status
         interruption_status =
             actor_demo.
@@ -585,6 +657,21 @@ int main()
             actor_demo.
                 faction_memberships.
                 memberships_in_canonical_order();
+
+    check(
+        state,
+        actor_demo.vision_state.has_value() &&
+            actor_demo.vision_state->actor() ==
+                continuity_actor &&
+            actor_demo.vision_state->forward() ==
+                rotated_forward.value() &&
+            actor_demo.vision_state->profile().
+                maximum_range_meters() == 75.0 &&
+            actor_demo.vision_state->profile().
+                field_of_view_degrees() == 80.0 &&
+            actor_demo.vision_state->confidence().value() ==
+                0.6,
+        "Demotion retains actor-owned orientation and sensing settings");
 
     check(
         state,
@@ -757,6 +844,21 @@ int main()
             actor_demo.
                 faction_memberships.
                 memberships_in_canonical_order();
+
+    check(
+        state,
+        actor_demo.vision_state.has_value() &&
+            actor_demo.vision_state->actor() ==
+                continuity_actor &&
+            actor_demo.vision_state->forward() ==
+                rotated_forward.value() &&
+            actor_demo.vision_state->profile().
+                maximum_range_meters() == 75.0 &&
+            actor_demo.vision_state->profile().
+                field_of_view_degrees() == 80.0 &&
+            actor_demo.vision_state->confidence().value() ==
+                0.6,
+        "Promotion retains actor-owned vision after fidelity round trip");
 
     check(
         state,
@@ -949,6 +1051,25 @@ int main()
         const auto confidence =
             confidence_result.value();
 
+        // The actor-owned adapter must use these same validated
+        // settings and never replace memory with synthetic facts.
+        const auto owned_face_status =
+            actor_demo.vision_state->face(forward);
+
+        const auto owned_profile_status =
+            actor_demo.vision_state->set_profile(vision);
+
+        const auto owned_confidence_status =
+            actor_demo.vision_state->set_confidence(
+                confidence);
+
+        check(
+            state,
+            owned_face_status.has_value() &&
+                owned_profile_status.has_value() &&
+                owned_confidence_status.has_value(),
+            "Actor-owned perception uses configurable live vision");
+
         const WorldTime first_time =
             WorldTime::from_microseconds_since_epoch(
                 1'000'000ULL);
@@ -1022,6 +1143,50 @@ int main()
 
         const auto original_memory =
             remembered_result.value();
+
+        const auto owned_observation =
+            observe_live_ai_actor_target(
+                world, actor_demo, clear_cells,
+                target, first_time);
+
+        const auto memory_after_owned =
+            actor_demo.visual_memory.find(
+                actor_demo.actor, target);
+
+        check(
+            state,
+            owned_observation.has_value() &&
+            owned_observation.value() ==
+                ActorVisualPerceptionState::visible &&
+            memory_after_owned.has_value() &&
+            memory_after_owned.value() ==
+                original_memory &&
+            actor_demo.visual_memory.size() == 1U,
+            "Actor-owned fixed-tick observation retains identical authoritative memory");
+
+        // A missing actor state must reject observation without
+        // changing the last-known visual memory.
+        const ActorVisionState saved_vision =
+            *actor_demo.vision_state;
+
+        actor_demo.vision_state.reset();
+
+        const auto missing_vision_result =
+            observe_live_ai_actor_target(
+                world, actor_demo, clear_cells,
+                target, first_time);
+
+        check(
+            state,
+            !missing_vision_result.has_value() &&
+            missing_vision_result.error().code ==
+                ErrorCode::invalid_state &&
+            actor_demo.visual_memory.find(
+                actor_demo.actor, target).value() ==
+                original_memory,
+            "Missing actor vision rejects observation without modifying memory");
+
+        actor_demo.vision_state.emplace(saved_vision);
 
         const WorldTime later_time =
             WorldTime::from_microseconds_since_epoch(
