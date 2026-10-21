@@ -1,6 +1,7 @@
 #include "live_ai_actor_demo.hpp"
 
 #include "oros/ai/actor_activity_intent_key.hpp"
+#include "oros/ai/actor_visual_perception_memory_update.hpp"
 #include "oros/ai/actor_faction_membership.hpp"
 #include "oros/ai/actor_scheduled_activity.hpp"
 #include "oros/ai/actor_schedule_window.hpp"
@@ -457,5 +458,149 @@ namespace oros::bootstrap
         }
 
         return transition;
+    }
+
+    foundation::Result<
+        ai::ActorVisualPerceptionState>
+    observe_live_ai_actor_target(
+        const world::World& world,
+        LiveAiActorDemo& actor_demo,
+        const physical_world::
+            WorldCellColliderRegistry& colliders,
+        const world::EntityId target,
+        const ai::ActorVisionDirection&
+            observer_forward,
+        const ai::ActorVisionProfile&
+            vision_profile,
+        const world::WorldTime observed_at,
+        ai::ActorVisualObservationConfidence
+            confidence)
+    {
+        const world::EntityId observer =
+            actor_demo.actor;
+
+        // Reject invalid or mismatched identities.
+        if (
+            !observer.is_valid() ||
+            !target.is_valid() ||
+            observer == target ||
+            observer.world_namespace !=
+                world.world_namespace() ||
+            target.world_namespace !=
+                world.world_namespace())
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_argument,
+                "Live visual observation requires "
+                "two distinct valid entities "
+                "from the authoritative World.");
+        }
+
+        // Both entities must currently exist.
+        // Rejected operations never change memory.
+        if (
+            !world.contains(observer) ||
+            !world.contains(target) ||
+            actor_demo.fidelity_registry.size() !=
+                1U ||
+            !actor_demo.fidelity_registry.contains(
+                observer))
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_state,
+                "Live visual observation requires "
+                "World-owned entities and a "
+                "matching actor fidelity state.");
+        }
+
+        const auto fidelity_result =
+            actor_demo.fidelity_registry.fidelity(
+                observer);
+
+        if (!fidelity_result.has_value())
+        {
+            return foundation::fail(
+                fidelity_result.error().code,
+                fidelity_result.error().message);
+        }
+
+        // Distant simulation retains memory but
+        // does not run expensive line-of-sight queries.
+        if (
+            fidelity_result.value() !=
+                ai::ActorSimulationFidelity::
+                    deep_local)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_state,
+                "Visual observation requires "
+                "deep-local simulation fidelity.");
+        }
+
+        // World owns the authoritative positions.
+        const world::WorldPosition*
+            observer_position =
+                world.find_position(observer);
+
+        const world::WorldPosition*
+            target_position =
+                world.find_position(target);
+
+        if (
+            observer_position == nullptr ||
+            target_position == nullptr ||
+            !observer_position->is_normalized() ||
+            !target_position->is_normalized())
+        {
+            return foundation::fail(
+                foundation::ErrorCode::
+                    invalid_state,
+                "Visual observation requires "
+                "normalized World-owned positions.");
+        }
+
+        // Evaluate range, field of view and
+        // authoritative collider visibility.
+        const auto perception_result =
+            ai::query_actor_visual_perception(
+                colliders,
+                observer,
+                *observer_position,
+                observer_forward,
+                vision_profile,
+                target,
+                *target_position);
+
+        if (!perception_result.has_value())
+        {
+            return foundation::fail(
+                perception_result.error().code,
+                perception_result.error().message);
+        }
+
+        // The existing AI memory adapter handles
+        // visible, occluded, distant and unavailable
+        // perception states without inventing facts.
+        const auto memory_result =
+            ai::apply_actor_visual_perception_to_memory(
+                actor_demo.visual_memory,
+                perception_result.value(),
+                observer,
+                target,
+                *target_position,
+                observed_at,
+                std::move(confidence));
+
+        if (!memory_result.has_value())
+        {
+            return foundation::fail(
+                memory_result.error().code,
+                memory_result.error().message);
+        }
+
+        return perception_result.value();
     }
 }
