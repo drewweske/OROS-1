@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -1652,6 +1653,30 @@ int main()
                             1.0F
                         };
 
+                        // OROS-009 automatic NPC perception.
+                        // The bootstrap NPC faces +X toward the
+                        // player's initial World-owned position.
+                        const auto npc_forward_result =
+                            oros::ai::ActorVisionDirection::create(
+                                WorldDisplacement{
+                                    1.0, 0.0, 0.0
+                                });
+
+                        const auto npc_profile_result =
+                            oros::ai::ActorVisionProfile::create(
+                                200.0, 120.0);
+
+                        const auto npc_confidence_result =
+                            oros::ai::
+                                ActorVisualObservationConfidence::
+                                    create(1.0);
+
+                        oros::ai::ActorVisualPerceptionState
+                            previous_npc_vision_state =
+                                oros::ai::
+                                    ActorVisualPerceptionState::
+                                        invalid;
+
                         const auto request_runtime_stop =
                             [&runtime, &exit_code](
                                 const std::string_view reason)
@@ -1879,7 +1904,182 @@ int main()
                                     }
 
                                     break;
-                                }                            }
+                                }
+
+                                // OROS-009 automatic NPC perception.
+                                // Simulation time comes from completed
+                                // fixed ticks, never from a wall clock.
+                                const std::uint64_t tick_ordinal =
+                                    frame_schedule.
+                                        first_simulation_tick_index +
+                                    static_cast<std::uint64_t>(
+                                        simulation_update_index) +
+                                    1ULL;
+
+                                const bool vision_ready =
+                                    npc_forward_result.has_value() &&
+                                    npc_profile_result.has_value() &&
+                                    npc_confidence_result.has_value();
+
+                                const auto step_ns =
+                                    simulation_step.count();
+
+                                const bool time_safe =
+                                    step_ns > 0 &&
+                                    tick_ordinal <=
+                                        (std::numeric_limits<
+                                            std::uint64_t>::max)() /
+                                        static_cast<std::uint64_t>(
+                                            step_ns);
+
+                                if (!vision_ready || !time_safe)
+                                {
+                                    write_log(
+                                        LogLevel::critical,
+                                        "ai",
+                                        "NPC vision settings or "
+                                        "deterministic tick time invalid.");
+
+                                    std::cerr
+                                        << "OROS NPC perception setup "
+                                        << "failed.\n";
+
+                                    exit_code = 1;
+                                    simulation_frame_failed = true;
+
+                                    if (!request_runtime_stop(
+                                            "NPC perception setup failure"))
+                                    {
+                                        simulation_stop_failed = true;
+                                    }
+
+                                    break;
+                                }
+
+                                const std::uint64_t elapsed_ns =
+                                    tick_ordinal *
+                                    static_cast<std::uint64_t>(
+                                        step_ns);
+
+                                const WorldTime observation_time =
+                                    WorldTime::
+                                        from_microseconds_since_epoch(
+                                            elapsed_ns / 1'000ULL);
+
+                                const auto perception_result =
+                                    oros::bootstrap::
+                                        observe_live_ai_actor_target(
+                                            world,
+                                            live_ai_actor_demo,
+                                            physical_world_demo.registry,
+                                            player_entity,
+                                            npc_forward_result.value(),
+                                            npc_profile_result.value(),
+                                            observation_time,
+                                            npc_confidence_result.value());
+
+                                if (!perception_result.has_value())
+                                {
+                                    const Error& error =
+                                        perception_result.error();
+
+                                    write_log(
+                                        LogLevel::critical,
+                                        "ai",
+                                        "NPC fixed-tick perception "
+                                        "failed: [" +
+                                            std::string{
+                                                to_string(error.code)} +
+                                            "] " +
+                                            error.message);
+
+                                    std::cerr
+                                        << "OROS NPC perception failed: ["
+                                        << to_string(error.code)
+                                        << "] "
+                                        << error.message
+                                        << '\n';
+
+                                    exit_code = 1;
+                                    simulation_frame_failed = true;
+
+                                    if (!request_runtime_stop(
+                                            "NPC perception failure"))
+                                    {
+                                        simulation_stop_failed = true;
+                                    }
+
+                                    break;
+                                }
+
+                                const auto current_vision_state =
+                                    perception_result.value();
+
+                                // Report transitions only, not every
+                                // fixed tick, to avoid log flooding.
+                                if (
+                                    current_vision_state !=
+                                    previous_npc_vision_state)
+                                {
+                                    previous_npc_vision_state =
+                                        current_vision_state;
+
+                                    std::string_view state_text{
+                                        "unknown"
+                                    };
+
+                                    switch (current_vision_state)
+                                    {
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::
+                                            visible:
+                                        state_text = "visible";
+                                        break;
+
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::
+                                            occluded:
+                                        state_text = "occluded";
+                                        break;
+
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::
+                                            out_of_range:
+                                        state_text = "out_of_range";
+                                        break;
+
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::
+                                            outside_field_of_view:
+                                        state_text = "outside_fov";
+                                        break;
+
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::
+                                            unavailable:
+                                        state_text = "unavailable";
+                                        break;
+
+                                    default:
+                                        state_text = "invalid";
+                                        break;
+                                    }
+
+                                    write_log(
+                                        LogLevel::info,
+                                        "ai",
+                                        "Live NPC perception of player: " +
+                                            std::string{state_text});
+
+                                    std::cout
+                                        << "OROS-009 NPC perception: "
+                                        << state_text
+                                        << ", remembered targets: "
+                                        << live_ai_actor_demo.
+                                            visual_memory.size()
+                                        << '\n';
+                                }
+                            }
 
                             if (simulation_stop_failed)
                             {
