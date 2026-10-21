@@ -59,7 +59,9 @@ def main() -> int:
     cpp_paths = {s["path"] for s in sources if s["path"].endswith(".cpp")}
     unregistered = sorted(cpp_paths - set(registered))
     stale_registration = sorted(set(registered) - cpp_paths)
-    duplicate_registration = sorted(path for path, n in registered.items() if n != 1)
+    # Source files may legitimately be compiled by multiple targets
+    # (e.g., both bootstrap and its integration-test executable).
+    multi_target_registration = sorted(path for path, n in registered.items() if n > 1)
     entries = {
         "source_count": len(sources),
         "cpp_count": len(cpp_paths),
@@ -68,7 +70,7 @@ def main() -> int:
         "oros_include_relationships": {name: dict(counts) for name, counts in sorted(includes.items())},
         "cpp_missing_from_cmake": unregistered,
         "cmake_cpp_without_source": stale_registration,
-        "duplicate_cmake_cpp_registration": duplicate_registration,
+        "cpp_reused_by_multiple_targets": multi_target_registration,
         "review_markers": markers,
         "source_inventory": sources,
     }
@@ -77,15 +79,15 @@ def main() -> int:
     out.write_text(json.dumps(entries, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"OROS source audit: {len(sources)} source/header files, "
           f"{len(cpp_paths)} C++ translation units, {total_lines} source lines")
-    print(f"CMake gaps: {len(unregistered)} missing, {len(stale_registration)} stale, "
-          f"{len(duplicate_registration)} duplicates")
+    print(f"CMake gaps: {len(unregistered)} missing, {len(stale_registration)} stale; "
+          f"{len(multi_target_registration)} intentional or reviewable multi-target registrations")
     print(f"Review markers: {len(markers)}; inventory: {out}")
     for kind, values in (("Unregistered", unregistered),
                          ("Missing source", stale_registration),
-                         ("Duplicate", duplicate_registration)):
+                         ("Multi-target", multi_target_registration)):
         for value in values:
             print(f"{kind}: {value}")
-    return 1 if unregistered or stale_registration or duplicate_registration else 0
+    return 1 if unregistered or stale_registration else 0
 
 
 if __name__ == "__main__":
