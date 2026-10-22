@@ -1,4 +1,5 @@
 #include "live_ai_actor_demo.hpp"
+#include "live_ai_perception_group_demo.hpp"
 #include "live_player_demo.hpp"
 #include "navigation_demo.hpp"
 
@@ -13,6 +14,7 @@
 #include "oros/runtime/engine_runtime.hpp"
 #include "oros/world/world.hpp"
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <iostream>
@@ -1229,6 +1231,64 @@ int main()
         "membership; navigation was freshly "
         "reacquired after promotion.");
 
+    // OROS-009 multi-actor bootstrap. The first NPC has completed
+    // its fidelity round trip above. Compose a second World-owned
+    // NPC at the authored navigation anchor with an opposite facing
+    // direction, demonstrating independent perception of the player.
+    auto second_live_ai_result =
+        oros::bootstrap::create_live_ai_actor_demo(
+            world, navigation_demo);
+
+    if (!second_live_ai_result.has_value())
+    {
+        const Error& error = second_live_ai_result.error();
+        write_log(
+            LogLevel::critical, "ai",
+            "Second live NPC composition failed: " + error.message);
+        std::cerr << "OROS second NPC creation failed: "
+                  << error.message << '\n';
+        shutdown_logging();
+        return 1;
+    }
+
+    oros::bootstrap::LiveAiActorDemo second_live_ai_actor_demo{
+        std::move(second_live_ai_result.value())
+    };
+
+    const auto opposite_forward =
+        oros::ai::ActorVisionDirection::create(
+            WorldDisplacement{-1.0, 0.0, 0.0});
+
+    if (
+        !opposite_forward.has_value() ||
+        !second_live_ai_actor_demo.vision_state.has_value() ||
+        !second_live_ai_actor_demo.vision_state->face(
+            opposite_forward.value()).has_value())
+    {
+        write_log(
+            LogLevel::critical, "ai",
+            "Second NPC requires a valid opposite vision direction.");
+        std::cerr << "OROS second NPC facing setup failed.\n";
+        shutdown_logging();
+        return 1;
+    }
+
+    const std::array<oros::bootstrap::LiveAiActorDemo*, 2>
+        live_ai_perception_actors{
+            &live_ai_actor_demo,
+            &second_live_ai_actor_demo
+        };
+
+    const std::array<EntityId, 1> live_ai_perception_targets{
+        player_entity
+    };
+
+    write_log(
+        LogLevel::info,
+        "ai",
+        "Two World-owned NPCs composed for independent, "
+        "actor-owned fixed-tick vision.");
+
     const WorldPosition* initial_player_position =
         world.find_position(
             player_entity);
@@ -1656,11 +1716,12 @@ int main()
                         // OROS-009 fixed-tick perception now uses
                         // validated actor-owned vision settings.
 
-                        oros::ai::ActorVisualPerceptionState
-                            previous_npc_vision_state =
-                                oros::ai::
-                                    ActorVisualPerceptionState::
-                                        invalid;
+                        std::array<
+                            oros::ai::ActorVisualPerceptionState,
+                            2> previous_npc_vision_states{
+                                oros::ai::ActorVisualPerceptionState::invalid,
+                                oros::ai::ActorVisualPerceptionState::invalid
+                            };
 
                         const auto request_runtime_stop =
                             [&runtime, &exit_code](
@@ -1901,14 +1962,11 @@ int main()
                                         simulation_update_index) +
                                     1ULL;
 
-                                const bool vision_ready =
+                                const bool roster_ready =
                                     live_ai_actor_demo.
                                         vision_state.has_value() &&
-                                    live_ai_actor_demo.
-                                        vision_state->is_valid() &&
-                                    live_ai_actor_demo.
-                                        vision_state->actor() ==
-                                    live_ai_actor_demo.actor;
+                                    second_live_ai_actor_demo.
+                                        vision_state.has_value();
 
                                 const auto step_ns =
                                     simulation_step.count();
@@ -1921,7 +1979,7 @@ int main()
                                         static_cast<std::uint64_t>(
                                             step_ns);
 
-                                if (!vision_ready || !time_safe)
+                                if (!roster_ready || !time_safe)
                                 {
                                     write_log(
                                         LogLevel::critical,
@@ -1957,11 +2015,11 @@ int main()
 
                                 const auto perception_result =
                                     oros::bootstrap::
-                                        observe_live_ai_actor_target(
+                                        observe_live_ai_actor_group(
                                             world,
-                                            live_ai_actor_demo,
                                             physical_world_demo.registry,
-                                            player_entity,
+                                            live_ai_perception_actors,
+                                            live_ai_perception_targets,
                                             observation_time);
 
                                 if (!perception_result.has_value())
@@ -1998,17 +2056,30 @@ int main()
                                     break;
                                 }
 
-                                const auto current_vision_state =
-                                    perception_result.value();
-
-                                // Report transitions only, not every
-                                // fixed tick, to avoid log flooding.
-                                if (
-                                    current_vision_state !=
-                                    previous_npc_vision_state)
+                                // Log only transitions for each actor,
+                                // never a message on every fixed tick.
+                                for (const auto& observation :
+                                    perception_result.value().observations)
                                 {
-                                    previous_npc_vision_state =
-                                        current_vision_state;
+                                    const std::size_t observer_index =
+                                        observation.observer ==
+                                            live_ai_actor_demo.actor
+                                            ? 0U : 1U;
+
+                                    const auto current_vision_state =
+                                        observation.perception;
+
+                                    if (
+                                        current_vision_state ==
+                                        previous_npc_vision_states[
+                                            observer_index])
+                                    {
+                                        continue;
+                                    }
+
+                                    previous_npc_vision_states[
+                                        observer_index] =
+                                            current_vision_state;
 
                                     std::string_view state_text{
                                         "unknown"
@@ -2017,20 +2088,17 @@ int main()
                                     switch (current_vision_state)
                                     {
                                     case oros::ai::
-                                        ActorVisualPerceptionState::
-                                            visible:
+                                        ActorVisualPerceptionState::visible:
                                         state_text = "visible";
                                         break;
 
                                     case oros::ai::
-                                        ActorVisualPerceptionState::
-                                            occluded:
+                                        ActorVisualPerceptionState::occluded:
                                         state_text = "occluded";
                                         break;
 
                                     case oros::ai::
-                                        ActorVisualPerceptionState::
-                                            out_of_range:
+                                        ActorVisualPerceptionState::out_of_range:
                                         state_text = "out_of_range";
                                         break;
 
@@ -2041,8 +2109,7 @@ int main()
                                         break;
 
                                     case oros::ai::
-                                        ActorVisualPerceptionState::
-                                            unavailable:
+                                        ActorVisualPerceptionState::unavailable:
                                         state_text = "unavailable";
                                         break;
 
@@ -2051,17 +2118,26 @@ int main()
                                         break;
                                     }
 
+                                    const auto* observed_actor =
+                                        live_ai_perception_actors[
+                                            observer_index];
+
                                     write_log(
                                         LogLevel::info,
                                         "ai",
-                                        "Live NPC perception of player: " +
+                                        "Live NPC #" +
+                                            std::to_string(
+                                                observer_index + 1U) +
+                                            " perception of player: " +
                                             std::string{state_text});
 
                                     std::cout
-                                        << "OROS-009 NPC perception: "
+                                        << "OROS-009 NPC "
+                                        << observer_index + 1U
+                                        << " perception: "
                                         << state_text
                                         << ", remembered targets: "
-                                        << live_ai_actor_demo.
+                                        << observed_actor->
                                             visual_memory.size()
                                         << '\n';
                                 }
