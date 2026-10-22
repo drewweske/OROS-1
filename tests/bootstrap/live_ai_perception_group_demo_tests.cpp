@@ -152,6 +152,11 @@ int main()
 
     const WorldPosition* first_position =
         world.find_position(first.actor);
+    // Copy the cell before adding another World position;
+    // ComponentStore growth may invalidate earlier pointers.
+    const WorldCell actor_cell =
+        first_position != nullptr ? first_position->cell() : WorldCell{};
+
     const auto near = first_position != nullptr
         ? first_position->translated(
             WorldDisplacement{10.0, 0.0, 0.0})
@@ -176,7 +181,7 @@ int main()
 
     WorldCellColliderRegistry colliders{};
     const WorldCellKey key{
-        world.world_namespace(), first_position->cell()
+        world.world_namespace(), actor_cell
     };
     const bool cell_ready = activate_empty_cell(colliders, key);
     check(
