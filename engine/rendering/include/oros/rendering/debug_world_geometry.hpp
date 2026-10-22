@@ -1,0 +1,49 @@
+#pragma once
+
+#include "oros/foundation/result.hpp"
+
+#include <span>
+#include <vector>
+
+namespace oros::rendering
+{
+    // Small Windows-first visual debug prototype. Distances are
+    // in meters RELATIVE to the World-owned player position.
+    struct DebugWorldMarker final
+    {
+        float relative_x{};
+        float relative_z{};
+        float red{0.90F};
+        float green{0.72F};
+        float blue{0.24F};
+    };
+
+    struct DebugWorldScene final
+    {
+        // Ground-grid offset keeps lines fixed in world space as the
+        // first-person player moves. Period is exactly five meters.
+        float grid_phase_x{};
+        float grid_phase_z{};
+        std::span<const DebugWorldMarker> markers{};
+    };
+
+    // Streamed D3D12 line-list vertex: screen-space coordinate and
+    // unlit RGBA color. No renderer-side World or player ownership.
+    struct DebugWorldVertex final
+    {
+        float x{};
+        float y{};
+        float red{};
+        float green{};
+        float blue{};
+        float alpha{1.0F};
+    };
+
+    // Pure deterministic camera projection, testable without a GPU.
+    // Scene coordinates remain relative to the player.
+    [[nodiscard]]
+    foundation::Result<std::vector<DebugWorldVertex>>
+    build_debug_world_lines(
+        const DebugWorldScene& scene,
+        float aspect_ratio);
+}

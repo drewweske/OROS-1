@@ -181,6 +181,7 @@ target_sources(
     oros_rendering
     PRIVATE
         engine/rendering/src/d3d12/renderer.cpp
+        engine/rendering/src/debug_world_geometry.cpp
 )
 
 target_include_directories(
@@ -666,6 +667,13 @@ if(BUILD_TESTING)
         oros.rendering.renderer
         tests/rendering/renderer_tests.cpp
         oros_platform
+        oros_rendering
+    )
+
+    oros_add_test_target(
+        oros_rendering_debug_world_geometry_tests
+        oros.rendering.debug_world_geometry
+        tests/rendering/debug_world_geometry_tests.cpp
         oros_rendering
     )
 
