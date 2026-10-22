@@ -253,9 +253,14 @@ namespace oros::bootstrap
 
                 const auto facts =
                     actor->visual_memory.observations_in_canonical_order();
-                canonical_facts.insert(
-                    canonical_facts.end(),
-                    facts.begin(), facts.end());
+                // Empty spans may carry null data pointers. Avoid
+                // forming a null-pointer iterator range for insert.
+                if (!facts.empty())
+                {
+                    canonical_facts.insert(
+                        canonical_facts.end(),
+                        facts.begin(), facts.end());
+                }
             }
 
             const foundation::Status combined_status =
