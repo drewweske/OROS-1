@@ -18,6 +18,20 @@ namespace oros::rendering
         float blue{0.24F};
     };
 
+    // Decorative landmark at a caller-provided World-relative offset.
+    // Purely visual for now; has NO collider, save-state or AI authority.
+    struct DebugWorldLandmark final
+    {
+        float relative_x{};
+        float relative_z{};
+        float width{5.0F};
+        float depth{5.0F};
+        float height{6.0F};
+        float red{0.95F};
+        float green{0.64F};
+        float blue{0.24F};
+    };
+
     struct DebugWorldScene final
     {
         // Ground-grid offset keeps lines fixed in world space as the
@@ -27,6 +41,7 @@ namespace oros::rendering
         // Positive yaw points the camera toward World +X.
         float camera_yaw_radians{};
         std::span<const DebugWorldMarker> markers{};
+        std::span<const DebugWorldLandmark> landmarks{};
     };
 
     // Streamed D3D12 line-list vertex: screen-space coordinate and

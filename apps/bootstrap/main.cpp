@@ -1310,6 +1310,13 @@ int main()
         return 1;
     }
 
+    // Snapshot the spawn position by value. Decorative landmark
+    // anchors must not follow the moving player or hold pointers into
+    // World component storage, which may reallocate.
+    const WorldPosition landmark_spawn_anchor{
+        *initial_player_position
+    };
+
     const WorldCell initial_player_world_cell =
         initial_player_position->cell();
 
@@ -2352,6 +2359,54 @@ int main()
                             debug_scene.grid_phase_z = grid_phase(
                                 visual_player->cell().z,
                                 visual_player->local().z);
+                            // Small authored *visual-only* outpost,
+                            // anchored to the player's original World
+                            // spawn rather than to the moving camera.
+                            const auto to_outpost =
+                                visual_player->displacement_to(
+                                    landmark_spawn_anchor);
+
+                            if (!to_outpost.has_value())
+                            {
+                                write_log(
+                                    LogLevel::critical,
+                                    "rendering",
+                                    "Cannot resolve visual outpost anchor.");
+                                exit_code = 1;
+                                simulation_frame_failed = true;
+                                if (!request_runtime_stop(
+                                        "invalid outpost anchor"))
+                                {
+                                    simulation_stop_failed = true;
+                                }
+                                continue;
+                            }
+
+                            const auto relative_outpost_x =
+                                static_cast<float>(
+                                    to_outpost.value().x);
+                            const auto relative_outpost_z =
+                                static_cast<float>(
+                                    to_outpost.value().z);
+
+                            const std::array<DebugWorldLandmark, 3>
+                                visible_landmarks{{
+                                    {relative_outpost_x - 12.0F,
+                                     relative_outpost_z + 25.0F,
+                                     8.0F, 8.0F, 8.0F,
+                                     1.0F, 0.66F, 0.23F},
+                                    {relative_outpost_x + 12.0F,
+                                     relative_outpost_z + 29.0F,
+                                     10.0F, 7.0F, 6.0F,
+                                     0.69F, 0.44F, 1.0F},
+                                    {relative_outpost_x,
+                                     relative_outpost_z + 47.0F,
+                                     7.0F, 7.0F, 12.0F,
+                                     0.34F, 0.94F, 0.72F}
+                                }};
+
+                            debug_scene.landmarks =
+                                visible_landmarks;
                             debug_scene.markers = visual_npcs;
                             debug_scene.camera_yaw_radians =
                                 static_cast<float>(debug_camera_yaw);

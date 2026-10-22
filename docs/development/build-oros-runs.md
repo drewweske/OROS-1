@@ -15,9 +15,10 @@ This file makes the ChatGPT-only development cadence verifiable across sessions.
 | 5 | 2026-10-22 | `62a708a` -> run-5 audit and budget commit | Mandatory whole-codebase architecture review, compare baseline, add bounded perception requests with regression tests, Windows build and test verification | **Mandatory full review completed** |
 | 6 | 2026-10-22 | `4ef9e17` -> `e70812b` | First D3D12 wireframe graybox, two actor posts, World-relative player view; Windows CI 122/122 CTest passed | Not due |
 | 7 | 2026-10-22 | `e70812b` -> run #7 camera/artifact integration | Fixed-tick camera yaw, view-relative WASD movement, near-plane line clipping, and downloadable GitHub Actions Windows executable | Not due |
+| 8 | 2026-10-22 | `d6d8731` -> visual-landmarks integration | Screenshot-guided graybox improvement: three world-fixed decorative wireframe outpost buildings, per-landmark validation, pure geometry and D3D renderer tests, downloadable Windows playtest | Not due |
 
-**Latest user command:** #7  
-**Next command:** #8  
+**Latest user command:** #8  
+**Next command:** #9  
 **Next required five-run audit:** **#10**
 
 When a new "Build OROS" request arrives, read this ledger before choosing work, advance the count once when the run is recorded, and do not skip the review at multiples of five. If no code change was possible, still report that execution was blocked instead of inventing a completed run.

@@ -1,4 +1,4 @@
-# Run OROS 1 on Windows — Playtest Guide (Build OROS #7)
+# Run OROS 1 on Windows — Playtest Guide (Build OROS #8)
 
 OROS is currently a Windows-first C++23/Direct3D12 engine graybox. The following method downloads a **Windows executable compiled by your own GitHub Actions workflow**. It does **not** edit or overwrite your existing local, uncommitted OROS source files, and requires no PowerShell or Codex.
 
@@ -9,7 +9,7 @@ OROS is currently a Windows-first C++23/Direct3D12 engine graybox. The following
 3. Scroll down to **Artifacts**. Click **`OROS-1-Windows-Debug`**. You may need to sign in to GitHub.
 4. Extract the downloaded ZIP to a **new separate folder**, such as `Documents\OROS-Playtest`. Never extract over the existing OROS repository checkout.
 5. Open the extracted folder in File Explorer and double-click **`Oros1.exe`**. Keep its console window open for diagnostics.
-6. You should see a Direct3D12 window with a perspective ground grid and two colored NPC debug posts, not only a blue background.
+6. You should see a Direct3D12 window with a perspective ground grid, two colored NPC debug posts and three bright wireframe outpost buildings, not only a blue background.
 
 If an unsigned-executable warning appears, verify the artifact is from a successful run of your own repository; do not run unknown third-party binaries. Windows graphics support for Direct3D12 is required.
 
@@ -19,12 +19,12 @@ If an unsigned-executable warning appears, verify the artifact is from a success
 - **Left / Right arrow keys:** rotate the camera view
 - **Escape** or window close: quit
 
-The camera follows the World-owned player from behind/above, rotating at a deterministic rate on fixed simulation ticks. This remains a wireframe development scene, **not** a textured terrain level or a free-look shooter camera.
+The camera follows the World-owned player from behind/above, rotating at a deterministic rate on fixed simulation ticks. The outpost is a **visual-only** landmark at a fixed World spawn-relative coordinate, not yet a collider or saved World entity. This remains a wireframe development scene, **not** a textured terrain level or a free-look shooter camera.
 
 ## Acceptance checklist
 
-- [ ] Native window opens and shows a perspective grid plus two NPC posts.
-- [ ] W moves forward and visible grid shifts; A/S/D strafe/backpedal/strafe.
+- [ ] Native window opens and shows a perspective grid, two NPC posts and three outpost buildings.
+- [ ] W moves forward, the grid shifts and the distant outpost approaches; A/S/D move relative to the view.
 - [ ] Left/Right rotates the visible camera.
 - [ ] After turning, W moves in the new forward direction.
 - [ ] Console prints NPC perception transitions as you change distance/angle.

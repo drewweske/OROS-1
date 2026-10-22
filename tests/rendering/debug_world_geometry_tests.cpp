@@ -148,6 +148,81 @@ int main()
         bad_colors.error().code == ErrorCode::invalid_argument,
         "Invalid NPC colors are rejected");
 
+    // A landmark's 17 wireframe edges are 34 projected vertices
+    // when fully ahead of the camera.
+    const std::array<DebugWorldLandmark, 2> buildings{{
+        {12.0F, 25.0F, 7.0F, 6.0F, 8.0F,
+         1.0F, 0.65F, 0.24F},
+        {-12.0F, 32.0F, 9.0F, 8.0F, 5.0F,
+         0.60F, 0.36F, 1.0F}
+    }};
+
+    DebugWorldScene outpost{};
+    outpost.landmarks = buildings;
+
+    const auto outpost_vertices =
+        build_debug_world_lines(outpost, 16.0F / 9.0F);
+
+    check(state,
+        outpost_vertices.has_value() &&
+            outpost_vertices->size() == grid->size() + 68U,
+        "Two colored wireframe buildings add 17 edges each");
+
+    if (!outpost_vertices) { return 1; }
+
+    const auto again =
+        build_debug_world_lines(outpost, 16.0F / 9.0F);
+
+    check(state,
+        again.has_value() &&
+        again->size() == outpost_vertices->size() &&
+        again.value()[grid->size()].x ==
+            outpost_vertices.value()[grid->size()].x,
+        "Landmark projection is deterministic");
+
+    std::array<DebugWorldLandmark, 2> shifted_buildings{
+        buildings
+    };
+    shifted_buildings[0].relative_x -= 5.0F;
+    DebugWorldScene player_moved = outpost;
+    player_moved.landmarks = shifted_buildings;
+
+    const auto landmark_shift =
+        build_debug_world_lines(
+            player_moved, 16.0F / 9.0F);
+    check(state,
+        landmark_shift.has_value() &&
+            landmark_shift.value()[grid->size()].x !=
+                outpost_vertices.value()[grid->size()].x,
+        "World-fixed structures shift relative to moving player");
+
+    std::array<DebugWorldLandmark, 1> invalid_building{{
+        {8.0F, 25.0F, -4.0F, 6.0F, 7.0F,
+         1.0F, 0.5F, 0.5F}
+    }};
+    DebugWorldScene invalid_landmark{};
+    invalid_landmark.landmarks = invalid_building;
+    const auto invalid_size =
+        build_debug_world_lines(invalid_landmark, 1.0F);
+    check(state,
+        !invalid_size.has_value() &&
+            invalid_size.error().code ==
+                ErrorCode::invalid_argument,
+        "Negative building width is rejected");
+
+    invalid_building[0].width = 6.0F;
+    invalid_building[0].height =
+        (std::numeric_limits<float>::infinity)();
+
+    const auto invalid_height =
+        build_debug_world_lines(invalid_landmark, 1.0F);
+
+    check(state,
+        !invalid_height.has_value() &&
+            invalid_height.error().code ==
+                ErrorCode::invalid_argument,
+        "Non-finite landmark height is rejected");
+
     std::cout << "Debug world geometry: "
               << state.count - state.failures << "/"
               << state.count << " passed\n";

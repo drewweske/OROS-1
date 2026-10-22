@@ -1,5 +1,6 @@
 #include "oros/rendering/debug_world_geometry.hpp"
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <new>
@@ -88,6 +89,70 @@ namespace oros::rendering
                 red, green, blue, 1.0F
             });
         }
+        struct LandmarkCorner final
+        {
+            float x{};
+            float y{};
+            float z{};
+        };
+
+        void wireframe_landmark(
+            std::vector<DebugWorldVertex>& vertices,
+            const DebugWorldLandmark& landmark,
+            const float aspect,
+            const float yaw)
+        {
+            const float left =
+                landmark.relative_x - landmark.width * 0.5F;
+            const float right =
+                landmark.relative_x + landmark.width * 0.5F;
+            const float front =
+                landmark.relative_z - landmark.depth * 0.5F;
+            const float back =
+                landmark.relative_z + landmark.depth * 0.5F;
+            const float top = landmark.height;
+            const float roof = top + 0.40F * landmark.height;
+            const float middle = landmark.relative_x;
+
+            // Stable construction order for deterministic debug frames:
+            // four lower corners, four upper corners, two roof peaks.
+            const std::array<LandmarkCorner, 10U> corners{{
+                {left, 0.0F, front}, {right, 0.0F, front},
+                {right, 0.0F, back}, {left, 0.0F, back},
+                {left, top, front}, {right, top, front},
+                {right, top, back}, {left, top, back},
+                {middle, roof, front}, {middle, roof, back}
+            }};
+
+            // Lower/upper rectangles, vertical posts and pitched roof.
+            constexpr std::array<std::array<std::size_t, 2U>, 17U>
+                edges{{
+                    {{0U, 1U}}, {{1U, 2U}},
+                    {{2U, 3U}}, {{3U, 0U}},
+                    {{4U, 5U}}, {{5U, 6U}},
+                    {{6U, 7U}}, {{7U, 4U}},
+                    {{0U, 4U}}, {{1U, 5U}},
+                    {{2U, 6U}}, {{3U, 7U}},
+                    {{4U, 8U}}, {{5U, 8U}},
+                    {{6U, 9U}}, {{7U, 9U}},
+                    {{8U, 9U}}
+                }};
+
+            for (const auto& edge : edges)
+            {
+                const auto& a = corners[edge[0]];
+                const auto& b = corners[edge[1]];
+                line(
+                    vertices,
+                    a.x, a.y, a.z,
+                    b.x, b.y, b.z,
+                    aspect, yaw,
+                    landmark.red,
+                    landmark.green,
+                    landmark.blue);
+            }
+        }
+
     }
 
     foundation::Result<std::vector<DebugWorldVertex>>
@@ -105,7 +170,8 @@ namespace oros::rendering
             scene.grid_phase_x > 5.0F ||
             scene.grid_phase_z < -5.0F ||
             scene.grid_phase_z > 5.0F ||
-            scene.markers.size() > 32U)
+            scene.markers.size() > 32U ||
+            scene.landmarks.size() > 12U)
         {
             return foundation::fail(
                 foundation::ErrorCode::invalid_argument,
@@ -130,11 +196,40 @@ namespace oros::rendering
             }
         }
 
+        for (const DebugWorldLandmark& landmark : scene.landmarks)
+        {
+            if (
+                !std::isfinite(landmark.relative_x) ||
+                !std::isfinite(landmark.relative_z) ||
+                !std::isfinite(landmark.width) ||
+                !std::isfinite(landmark.depth) ||
+                !std::isfinite(landmark.height) ||
+                !std::isfinite(landmark.red) ||
+                !std::isfinite(landmark.green) ||
+                !std::isfinite(landmark.blue) ||
+                landmark.width < 0.5F ||
+                landmark.width > 30.0F ||
+                landmark.depth < 0.5F ||
+                landmark.depth > 30.0F ||
+                landmark.height < 0.5F ||
+                landmark.height > 30.0F ||
+                landmark.red < 0.0F || landmark.red > 1.0F ||
+                landmark.green < 0.0F || landmark.green > 1.0F ||
+                landmark.blue < 0.0F || landmark.blue > 1.0F)
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::invalid_argument,
+                    "Invalid debug-world landmark dimensions, "
+                    "position or color.");
+            }
+        }
+
         try
         {
             std::vector<DebugWorldVertex> vertices{};
             vertices.reserve(
-                80U + scene.markers.size() * 8U);
+                80U + scene.markers.size() * 8U +
+                    scene.landmarks.size() * 34U);
 
             // Lines intersect on a World-anchored five-meter grid.
             // Fixed geometry bounds avoid infinite or huge draws.
@@ -204,6 +299,15 @@ namespace oros::rendering
                     aspect_ratio,
                     scene.camera_yaw_radians,
                     marker.red, marker.green, marker.blue);
+            }
+
+            // Decorative structures are relative to stable World
+            // positions and do not claim collision authority.
+            for (const DebugWorldLandmark& landmark : scene.landmarks)
+            {
+                wireframe_landmark(
+                    vertices, landmark,
+                    aspect_ratio, scene.camera_yaw_radians);
             }
 
             return std::move(vertices);

@@ -284,6 +284,14 @@ int main()
         DebugWorldScene debug_world{};
         debug_world.grid_phase_x = 1.0F;
         debug_world.markers = npc_markers;
+        const std::array<DebugWorldLandmark, 2>
+            buildings{{
+                {12.0F, 25.0F, 8.0F, 6.0F, 7.0F,
+                 0.95F, 0.68F, 0.20F},
+                {-13.0F, 30.0F, 9.0F, 8.0F, 5.0F,
+                 0.70F, 0.40F, 0.90F}
+            }};
+        debug_world.landmarks = buildings;
 
         const Status world_frame_status =
             renderer.draw_world_frame(
