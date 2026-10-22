@@ -17,10 +17,11 @@ This file makes the ChatGPT-only development cadence verifiable across sessions.
 | 7 | 2026-10-22 | `e70812b` -> run #7 camera/artifact integration | Fixed-tick camera yaw, view-relative WASD movement, near-plane line clipping, and downloadable GitHub Actions Windows executable | Not due |
 | 8 | 2026-10-22 | `d6d8731` -> `6e948ab` | Screenshot-guided graybox: three World-anchored decorative wireframe outpost landmarks; Windows/MSVC 122/122 tests passed | Not due |
 | 9 | 2026-10-22 | `6e948ab` -> `69dce00` | Authored outpost layout connects three loaded box colliders to renderer; Windows/MSVC 123/123 CTest passed, playtest artifact published | Not due |
-| 10 | 2026-10-22 | `69dce00` -> audit #10 / occlusion regression | **Mandatory full-repository architecture review**, since-#5 Git-tree delta, cross-subsystem risk analysis; regress NPC sight blocked by the actual outpost collider | **Mandatory review completed** |
+| 10 | 2026-10-22 | `69dce00` -> `d6c876b` | Mandatory full-engine architecture review, regression for AI sight through the same loaded outpost walls; Windows CI 123/123 passed | **Mandatory review completed** |
+| 11 | 2026-10-22 | `d6c876b` -> solid graybox implementation | Flat-shaded clipped ground and gabled buildings, D3D12 depth-buffer/triangle pass, depth-tested wireframe overlay, resize/geometry tests; full Windows CI pending | Not due |
 
-**Latest user command:** #10  
-**Next command:** #11  
+**Latest user command:** #11  
+**Next command:** #12  
 **Next required five-run audit:** **#15**
 
 When a new "Build OROS" request arrives, read this ledger before choosing work, advance the count once when the run is recorded, and do not skip the review at multiples of five. If no code change was possible, still report that execution was blocked instead of inventing a completed run.

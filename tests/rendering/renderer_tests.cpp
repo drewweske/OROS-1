@@ -300,7 +300,7 @@ int main()
         check(
             state,
             world_frame_status.has_value(),
-            "Renderer submits perspective grid and NPC debug geometry");
+            "Renderer submits depth-tested solid buildings and debug outlines");
 
         const Status first_idle_status =
             renderer.wait_idle();
@@ -332,6 +332,14 @@ int main()
             state,
             resized_frame_status.has_value(),
             "Renderer draws after a buffer resize");
+
+        // Resizing must also recreate the matching depth texture.
+        const Status resized_world_frame =
+            renderer.draw_world_frame(resized_color, debug_world);
+        check(
+            state,
+            resized_world_frame.has_value(),
+            "Opaque ground and buildings render after depth-buffer resize");
 
         const Status minimized_resize_status =
             renderer.resize(0U, 0U);

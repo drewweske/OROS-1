@@ -63,8 +63,8 @@ namespace oros::rendering
         draw_frame(
             const ClearColor& clear_color);
 
-        // First visible graybox: perspective ground grid and
-        // actor posts, following the authoritative player position.
+        // First opaque graybox: depth-tested ground and pitched-roof
+        // buildings, followed by World-relative outlines and NPC posts.
         [[nodiscard]] foundation::Status
         draw_world_frame(
             const ClearColor& clear_color,

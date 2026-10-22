@@ -1,4 +1,4 @@
-# Run OROS 1 on Windows — Playtest Guide (Build OROS #8)
+# Run OROS 1 on Windows — Playtest Guide (Build OROS #11)
 
 OROS is currently a Windows-first C++23/Direct3D12 engine graybox. The following method downloads a **Windows executable compiled by your own GitHub Actions workflow**. It does **not** edit or overwrite your existing local, uncommitted OROS source files, and requires no PowerShell or Codex.
 
@@ -9,7 +9,7 @@ OROS is currently a Windows-first C++23/Direct3D12 engine graybox. The following
 3. Scroll down to **Artifacts**. Click **`OROS-1-Windows-Debug`**. You may need to sign in to GitHub.
 4. Extract the downloaded ZIP to a **new separate folder**, such as `Documents\OROS-Playtest`. Never extract over the existing OROS repository checkout.
 5. Open the extracted folder in File Explorer and double-click **`Oros1.exe`**. Keep its console window open for diagnostics.
-6. You should see a Direct3D12 window with a perspective ground grid, two colored NPC debug posts and three bright wireframe outpost buildings, not only a blue background.
+6. You should see a Direct3D12 window with a perspective grid over solid ground, two colored NPC posts and three opaque pitched-roof outpost buildings, not only a blue background.
 
 If an unsigned-executable warning appears, verify the artifact is from a successful run of your own repository; do not run unknown third-party binaries. Windows graphics support for Direct3D12 is required.
 
@@ -19,11 +19,12 @@ If an unsigned-executable warning appears, verify the artifact is from a success
 - **Left / Right arrow keys:** rotate the camera view
 - **Escape** or window close: quit
 
-The camera follows the World-owned player from behind/above, rotating at a deterministic rate on fixed simulation ticks. The outpost has **three static box colliders** in the loaded world cell, aligned with the wall volumes of the visible structures. Roofs are decorative, and the buildings do not yet have independent World entity identities or persistence outside the authored bootstrap. This remains a wireframe development scene, **not** a textured terrain level or a free-look shooter camera.
+The camera follows the World-owned player from behind/above, rotating at a deterministic rate on fixed simulation ticks. The outpost has **three static box colliders** in the loaded world cell, aligned with the wall volumes of the visible structures. Roofs are decorative, and the buildings do not yet have independent World entity identities or persistence outside the authored bootstrap. This is a **flat-shaded opaque graybox** with a GPU depth buffer and wireframe outlines, not yet textured terrain, shadows or a free-look shooter camera.
 
 ## Acceptance checklist
 
-- [ ] Native window opens and shows a perspective grid, two NPC posts and three outpost buildings.
+- [ ] Native window opens with solid dark ground, an overlaid grid, two NPC posts and three colorful **solid** buildings with pitched roofs.
+- [ ] While turning, rear building walls are hidden by the front building rather than drawing through it.
 - [ ] W moves forward, the grid shifts and the distant outpost approaches; A/S/D move relative to the view.
 - [ ] Walk into the front of the tall green tower (the central structure farther from spawn): the player should stop at the wall instead of passing through.
 - [ ] Left/Right rotates the visible camera.
@@ -43,4 +44,4 @@ If you want the source and local debugger, use GitHub Desktop to **clone** `drew
 - CMake executable target: `oros_bootstrap`; binary filename: `Oros1.exe`.
 - Windows CI binary output: `build/bin/Debug/Oros1.exe`.
 - GitHub Actions workflow: `.github/workflows/oros-windows-ci.yml`.
-- Automated test suite: CTest including D3D12 hidden-window renderer tests and pure camera/grid geometry tests.
+- Automated test suite: CTest including hidden-window D3D12 depth-texture creation/resizing, opaque scene submission, and pure deterministic camera/triangle geometry tests.
