@@ -753,7 +753,7 @@ int main()
         memory.forget_entity(target) == 2U &&
             memory.empty() &&
             !memory.contains(observer, target) &&
-            !memory.contains(second_observer, target),
+            !memory.contains(earlier_observer, target),
         "Despawn purge removes both remembered target and observer facts");
 
     check(
