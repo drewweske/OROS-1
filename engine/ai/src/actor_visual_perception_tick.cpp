@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <new>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -105,9 +106,12 @@ namespace oros::ai
                 }
             }
 
-            // Nothing reaches the caller until every requested observation
-            // has been evaluated and all memory updates have succeeded.
-            ActorVisualObservationMemory staged_memory{memory};
+            // Do not copy a potentially large memory collection on a
+            // no-visibility tick. Only a visible observation can add or
+            // refresh an authoritative remembered fact. Once one is
+            // evaluated, stage the original memory before applying it:
+            // later invalid/stale facts still roll back the entire batch.
+            std::optional<ActorVisualObservationMemory> staged_memory{};
             ActorVisualPerceptionTickReport report{};
             report.observations.reserve(sorted.size());
 
@@ -155,9 +159,23 @@ namespace oros::ai
                         perception.error().message);
                 }
 
+                if (perception.value() ==
+                        ActorVisualPerceptionState::visible &&
+                    !staged_memory.has_value())
+                {
+                    staged_memory.emplace(memory);
+                    report.visual_memory_staged = true;
+                }
+
+                // Non-visible states only preserve memory; the helper
+                // validates the state but cannot modify caller memory.
+                ActorVisualObservationMemory& destination =
+                    staged_memory.has_value()
+                        ? *staged_memory
+                        : memory;
                 const auto memory_update =
                     apply_actor_visual_perception_to_memory(
-                        staged_memory,
+                        destination,
                         perception.value(),
                         request.observer,
                         request.target,
@@ -178,9 +196,13 @@ namespace oros::ai
                 });
             }
 
-            // Both moves are noexcept; after the memory commit, the
-            // report return cannot allocate or trigger a rollback error.
-            memory = std::move(staged_memory);
+            // Leave storage entirely unchanged for occluded, distant,
+            // out-of-range and unavailable ticks. When staged, the
+            // noexcept move publishes every update atomically.
+            if (staged_memory.has_value())
+            {
+                memory = std::move(*staged_memory);
+            }
             return std::move(report);
         }
         catch (const std::bad_alloc&)

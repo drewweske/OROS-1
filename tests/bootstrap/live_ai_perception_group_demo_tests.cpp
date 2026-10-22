@@ -356,6 +356,41 @@ int main()
             second.visual_memory.size() == 1U,
         "Missing World target rejects batch without losing knowledge");
 
+    // Both distant actors still hold old facts. Unobserved fixed
+    // ticks must not rebuild their memory vectors in the bootstrap
+    // adapter, even though it assembles an ephemeral batch registry.
+    const auto distant_first = first.fidelity_registry.transition(
+        first.actor, ActorSimulationFidelity::statistical_distant);
+    const auto distant_second = second.fidelity_registry.transition(
+        second.actor, ActorSimulationFidelity::statistical_distant);
+    const auto* old_first_memory =
+        first.visual_memory.observations_in_canonical_order().data();
+    const auto* old_second_memory =
+        second.visual_memory.observations_in_canonical_order().data();
+    bool inactive_memory_stable =
+        distant_first.has_value() && distant_second.has_value();
+    for (std::size_t i = 0U;
+         i < 64U && inactive_memory_stable; ++i)
+    {
+        const auto idle_tick = observe_live_ai_actor_group(
+            world, colliders, actors, targets,
+            WorldTime::from_microseconds_since_epoch(
+                7'000'000ULL + static_cast<std::uint64_t>(i)));
+        inactive_memory_stable =
+            idle_tick.has_value() &&
+            idle_tick->observations.empty() &&
+            idle_tick->skipped_distant_pairs == 2U &&
+            !idle_tick->visual_memory_staged &&
+            first.visual_memory.observations_in_canonical_order().data() ==
+                old_first_memory &&
+            second.visual_memory.observations_in_canonical_order().data() ==
+                old_second_memory;
+    }
+    check(checks, inactive_memory_stable &&
+        first.visual_memory.size() == 1U &&
+        second.visual_memory.size() == 1U,
+        "64 distant multi-NPC ticks retain exact memory storage and facts");
+
     std::cout << "\nLive actor group: "
               << checks.count - checks.failed << "/"
               << checks.count << " checks passed\n";

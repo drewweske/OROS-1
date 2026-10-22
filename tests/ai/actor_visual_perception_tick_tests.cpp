@@ -215,6 +215,7 @@ int main()
         first_tick->observations[1].perception ==
             ActorVisualPerceptionState::outside_field_of_view &&
         first_tick->skipped_distant_pairs == 0U &&
+        first_tick->visual_memory_staged &&
         memory.contains(*first, *target) &&
         !memory.contains(*second, *target) &&
         memory.size() == 1U,
@@ -278,6 +279,8 @@ int main()
             ActorSimulationFidelity::statistical_distant).has_value(),
         "First actor demotes without losing its state");
 
+    const auto* before_skipped_storage =
+        memory.observations_in_canonical_order().data();
     const auto skipped = observe_actor_visual_perception_tick(
         world, clear, visions, fidelities,
         memory, reversed,
@@ -287,6 +290,9 @@ int main()
         skipped->skipped_distant_pairs == 1U &&
         skipped->observations.size() == 1U &&
         skipped->observations[0].observer == *second &&
+        !skipped->visual_memory_staged &&
+        memory.observations_in_canonical_order().data() ==
+            before_skipped_storage &&
         memory.contains(*first, *target) &&
         memory.size() == 1U,
         "Distant actor skips sight but retains last-known memory");
@@ -346,6 +352,8 @@ int main()
         "Stale later pair rolls back earlier staged memory update");
 
     WorldCellColliderRegistry unavailable{};
+    const auto* before_unavailable_storage =
+        memory.observations_in_canonical_order().data();
     const auto unobserved = observe_actor_visual_perception_tick(
         world, unavailable, visions, fidelities, memory,
         reversed, WorldTime::from_microseconds_since_epoch(6'000'000ULL));
@@ -356,8 +364,36 @@ int main()
             ActorVisualPerceptionState::unavailable &&
         unobserved->observations[1].perception ==
             ActorVisualPerceptionState::unavailable &&
+        !unobserved->visual_memory_staged &&
+        memory.observations_in_canonical_order().data() ==
+            before_unavailable_storage &&
         memory.size() == 2U,
         "Unloaded collider data reports unavailable; does not invent sight");
+
+    // A no-op perception tick must never allocate a replacement
+    // remembered-observation buffer, even with existing live facts.
+    // Repetition exercises the common stationary/occluded case.
+    bool unchanged_storage = true;
+    for (std::size_t repeat_index = 0U;
+         repeat_index < 64U; ++repeat_index)
+    {
+        const auto no_visibility = observe_actor_visual_perception_tick(
+            world, unavailable, visions, fidelities, memory,
+            reversed,
+            WorldTime::from_microseconds_since_epoch(
+                7'000'000ULL +
+                    static_cast<std::uint64_t>(repeat_index)));
+        if (!no_visibility.has_value() ||
+            no_visibility->visual_memory_staged ||
+            memory.observations_in_canonical_order().data() !=
+                before_unavailable_storage)
+        {
+            unchanged_storage = false;
+            break;
+        }
+    }
+    check(test, unchanged_storage && memory.size() == 2U,
+        "64 nonresident ticks preserve allocated memory storage");
 
     std::cout << "\nPerception batch: "
               << test.checks - test.failed << "/"

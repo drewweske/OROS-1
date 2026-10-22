@@ -164,8 +164,16 @@ namespace oros::bootstrap
                     result.error().message);
             }
 
-            // Prepare all replacement memories before committing any
-            // actor. A later allocation failure cannot corrupt peers.
+            // The reusable tick stages memory only on visibility.
+            // Skip expensive actor-by-actor rebuilding when every
+            // pair was distant, occluded, out of range or unavailable.
+            if (!result->visual_memory_staged)
+            {
+                return std::move(result.value());
+            }
+
+            // Prepare replacement memories before committing any
+            // actor. Later allocation failure cannot corrupt peers.
             std::vector<ai::ActorVisualObservationMemory> staged{};
             staged.reserve(ordered.size());
 

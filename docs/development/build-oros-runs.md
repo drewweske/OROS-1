@@ -20,10 +20,11 @@ This file makes the ChatGPT-only development cadence verifiable across sessions.
 | 10 | 2026-10-22 | `69dce00` -> `d6c876b` | Mandatory full-engine architecture review, regression for AI sight through the same loaded outpost walls; Windows CI 123/123 passed | **Mandatory review completed** |
 | 11 | 2026-10-22 | `d6c876b` -> `821d52b` | Solid D3D12 ground and pitched-roof buildings with GPU depth testing; Windows CI 123/123 tests passed | Not due |
 | 12 | 2026-10-22 | `821d52b` -> `594cdce` | World-relative scene extraction with origin-anchored outpost and World-cell boundary tests; Windows CI 124/124 passed | Not due |
-| 13 | 2026-10-22 | `594cdce` -> explicit NPC retirement | Add canonical allocation-free visual memory purge and validated World-owned NPC retirement; test survivor memory isolation, identity non-reuse and invalid-roster atomicity | Not due |
+| 13 | 2026-10-22 | `594cdce` -> `ab2a8af` | Explicit NPC retirement and visual-memory cleanup; Windows/MSVC CI 125/125 CTest passed after test-fixture corrections | Not due |
+| 14 | 2026-10-22 | `ab2a8af` -> lazy memory staging | Avoid full tick memory staging and bootstrap repartition on nonvisible/distant/unavailable requests; verify memory storage stays unchanged over repeated ticks; CI pending | Not due |
 
-**Latest user command:** #13  
-**Next command:** #14  
+**Latest user command:** #14  
+**Next command:** #15 — mandatory whole-engine review  
 **Next required five-run audit:** **#15**
 
 When a new "Build OROS" request arrives, read this ledger before choosing work, advance the count once when the run is recorded, and do not skip the review at multiples of five. If no code change was possible, still report that execution was blocked instead of inventing a completed run.

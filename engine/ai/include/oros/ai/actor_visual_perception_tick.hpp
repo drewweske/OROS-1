@@ -39,6 +39,10 @@ namespace oros::ai
         // Deep-local observers only; distant ones are skipped.
         std::vector<ActorVisualPerceptionTickObservation> observations{};
         std::size_t skipped_distant_pairs{};
+        // True if a visible pair caused transactional memory staging.
+        // Identical same-time observations can still stage a no-op;
+        // false means original memory storage was never rebuilt.
+        bool visual_memory_staged{};
     };
 
     // Fully deterministic for a given World, collider residency, actor
@@ -52,9 +56,11 @@ namespace oros::ai
     // request set exceeds it, the entire batch fails without any
     // expensive query, allocation or visual-memory mutation.
     //
-    // This initial implementation stages a memory copy for atomicity.
-    // Callers should later add explicit NPC sight budgets before using
-    // it for large populations. It does not discover NPCs or targets.
+    // A memory copy is staged only when the batch includes at least one
+    // visible pair. Purely skipped/nonvisible batches keep their memory
+    // storage untouched. This does NOT eliminate copying for visible
+    // updates, and no throughput gains are assumed without profiling.
+    // The API does not discover NPCs or targets.
     [[nodiscard]]
     foundation::Result<ActorVisualPerceptionTickReport>
     observe_actor_visual_perception_tick(
