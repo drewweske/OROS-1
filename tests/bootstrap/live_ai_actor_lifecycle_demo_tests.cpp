@@ -33,14 +33,14 @@ int main()
     using namespace oros::foundation;
 
     Checks c{};
-    const auto world_result = World::create(0x4F524F53ULL);
+    auto world_result = World::create(0x4F524F53ULL);
     const auto navigation = create_navigation_demo();
     check(c, world_result && navigation,
         "World and navigation exist");
     if (!world_result || !navigation) { return 1; }
     World world{std::move(world_result.value())};
-    const auto a = create_live_ai_actor_demo(world, navigation.value());
-    const auto b = create_live_ai_actor_demo(world, navigation.value());
+    auto a = create_live_ai_actor_demo(world, navigation.value());
+    auto b = create_live_ai_actor_demo(world, navigation.value());
     check(c, a && b, "Two separate live NPCs spawn");
     if (!a || !b) { return 1; }
 
