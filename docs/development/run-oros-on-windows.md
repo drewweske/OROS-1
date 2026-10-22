@@ -19,7 +19,7 @@ If an unsigned-executable warning appears, verify the artifact is from a success
 - **Left / Right arrow keys:** rotate the camera view
 - **Escape** or window close: quit
 
-The camera follows the World-owned player from behind/above, rotating at a deterministic rate on fixed simulation ticks. The outpost has **three static box colliders** in the loaded world cell, aligned with the wall volumes of the visible structures. Roofs are decorative, and the buildings do not yet have independent World entity identities or persistence outside the authored bootstrap. This is a **flat-shaded opaque graybox** with a GPU depth buffer and wireframe outlines, not yet textured terrain, shadows or a free-look shooter camera.
+The camera follows the World-owned player from behind/above, rotating at a deterministic rate on fixed simulation ticks. The outpost has **three static box colliders** in the loaded World origin cell, and the rendered buildings now use that same fixed origin even when the player starts somewhere else or crosses a World-cell boundary. Roofs are decorative, and the buildings do not yet have independent World entity identities or persistence outside the authored bootstrap. This is a **flat-shaded opaque graybox** with a GPU depth buffer and wireframe outlines, not yet textured terrain, shadows or a free-look shooter camera.
 
 ## Acceptance checklist
 

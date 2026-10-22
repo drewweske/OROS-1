@@ -2,7 +2,7 @@
 #include "live_ai_perception_group_demo.hpp"
 #include "live_player_demo.hpp"
 #include "navigation_demo.hpp"
-#include "outpost_layout.hpp"
+#include "live_debug_world_scene.hpp"
 
 #include "oros/ai/navigation_obstacle_overlay.hpp"
 #include "oros/ai/navigation_search.hpp"
@@ -1311,13 +1311,6 @@ int main()
         return 1;
     }
 
-    // Snapshot the spawn position by value. Decorative landmark
-    // anchors must not follow the moving player or hold pointers into
-    // World component storage, which may reallocate.
-    const WorldPosition landmark_spawn_anchor{
-        *initial_player_position
-    };
-
     const WorldCell initial_player_world_cell =
         initial_player_position->cell();
 
@@ -2285,149 +2278,40 @@ int main()
                                 continue;
                             }
 
-                            std::array<DebugWorldMarker, 2>
-                                visual_npcs{};
-                            bool visual_actors_valid = true;
-
-                            for (std::size_t i = 0U;
-                                 i < live_ai_perception_actors.size();
-                                 ++i)
-                            {
-                                const WorldPosition* npc_position =
+                            const std::array<
+                                const WorldPosition*, 2U>
+                                visual_npcs{{
                                     world.find_position(
-                                        live_ai_perception_actors[i]->actor);
-                                if (npc_position == nullptr)
-                                {
-                                    visual_actors_valid = false;
-                                    break;
-                                }
+                                        live_ai_perception_actors[0]->actor),
+                                    world.find_position(
+                                        live_ai_perception_actors[1]->actor)
+                                }};
 
-                                const auto displacement =
-                                    visual_player->displacement_to(
-                                        *npc_position);
-                                if (!displacement.has_value())
-                                {
-                                    visual_actors_valid = false;
-                                    break;
-                                }
-
-                                visual_npcs[i] = DebugWorldMarker{
-                                    static_cast<float>(
-                                        displacement.value().x),
-                                    static_cast<float>(
-                                        displacement.value().z),
-                                    i == 0U ? 1.0F : 0.45F,
-                                    i == 0U ? 0.66F : 1.0F,
-                                    i == 0U ? 0.20F : 0.42F
-                                };
-                            }
-
-                            if (!visual_actors_valid)
+                            const auto visual_frame =
+                                oros::bootstrap::build_live_debug_world_frame(
+                                    *visual_player,
+                                    visual_npcs,
+                                    static_cast<float>(debug_camera_yaw));
+                            if (!visual_frame.has_value())
                             {
                                 write_log(
-                                    LogLevel::critical,
-                                    "rendering",
-                                    "Missing NPC World position for scene.");
+                                    LogLevel::critical, "rendering",
+                                    "Visual frame composition failed: " +
+                                        visual_frame.error().message);
                                 exit_code = 1;
                                 simulation_frame_failed = true;
                                 if (!request_runtime_stop(
-                                        "missing visual NPC position"))
+                                        "invalid World visual scene"))
                                 {
                                     simulation_stop_failed = true;
                                 }
                                 continue;
                             }
-
-                            // A 1024-meter WorldCell contributes 4 mod 5
-                            // to a five-meter grid: crossing cells does
-                            // not cause the visible floor to jump.
-                            const auto grid_phase =
-                                [](const std::int64_t cell,
-                                   const double local) noexcept
-                                {
-                                    return static_cast<float>(
-                                        std::fmod(
-                                            static_cast<double>(
-                                                cell % 5LL) * 4.0 +
-                                                local,
-                                            5.0));
-                                };
-
-                            DebugWorldScene debug_scene{};
-                            debug_scene.grid_phase_x = grid_phase(
-                                visual_player->cell().x,
-                                visual_player->local().x);
-                            debug_scene.grid_phase_z = grid_phase(
-                                visual_player->cell().z,
-                                visual_player->local().z);
-                            // Static outpost shares its authored layout
-                            // with the streamed physical-world cell.
-                            // Keep the visible model aligned with
-                            // collision while the player/camera moves.
-                            const auto to_outpost =
-                                visual_player->displacement_to(
-                                    landmark_spawn_anchor);
-
-                            if (!to_outpost.has_value())
-                            {
-                                write_log(
-                                    LogLevel::critical,
-                                    "rendering",
-                                    "Cannot resolve visual outpost anchor.");
-                                exit_code = 1;
-                                simulation_frame_failed = true;
-                                if (!request_runtime_stop(
-                                        "invalid outpost anchor"))
-                                {
-                                    simulation_stop_failed = true;
-                                }
-                                continue;
-                            }
-
-                            const auto relative_outpost_x =
-                                static_cast<float>(
-                                    to_outpost.value().x);
-                            const auto relative_outpost_z =
-                                static_cast<float>(
-                                    to_outpost.value().z);
-
-                            std::array<
-                                DebugWorldLandmark,
-                                oros::bootstrap::outpost_buildings.size()>
-                                visible_landmarks{};
-
-                            for (std::size_t index = 0U;
-                                 index <
-                                    oros::bootstrap::outpost_buildings.size();
-                                 ++index)
-                            {
-                                const auto& building =
-                                    oros::bootstrap::outpost_buildings[index];
-
-                                visible_landmarks[index] = {
-                                    relative_outpost_x +
-                                        static_cast<float>(building.center_x),
-                                    relative_outpost_z +
-                                        static_cast<float>(building.center_z),
-                                    static_cast<float>(building.width),
-                                    static_cast<float>(building.depth),
-                                    static_cast<float>(building.height),
-                                    building.red,
-                                    building.green,
-                                    building.blue
-                                };
-                            }
-
-                            debug_scene.landmarks =
-                                visible_landmarks;
-                            debug_scene.markers = visual_npcs;
-                            debug_scene.camera_yaw_radians =
-                                static_cast<float>(debug_camera_yaw);
 
                             const Status frame_status =
                                 renderer.draw_world_frame(
                                     first_light_color,
-                                    debug_scene);
+                                    visual_frame.value().scene());
 
                             if (!frame_status.has_value())
                             {
