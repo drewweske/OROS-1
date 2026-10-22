@@ -167,10 +167,17 @@ namespace oros::rendering
         // Debug-world PSO and upload buffers live with this renderer.
         ComPtr<ID3D12RootSignature> debug_root_signature{};
         ComPtr<ID3D12PipelineState> debug_pipeline{};
+        ComPtr<ID3D12PipelineState> solid_pipeline{};
         std::vector<ComPtr<ID3D12Resource>>
             debug_vertex_buffers{};
+        std::vector<ComPtr<ID3D12Resource>>
+            solid_vertex_buffers{};
+
+        ComPtr<ID3D12DescriptorHeap> depth_view_heap{};
+        ComPtr<ID3D12Resource> depth_buffer{};
 
         static constexpr std::size_t max_debug_vertices = 1024U;
+        static constexpr std::size_t max_solid_vertices = 2048U;
 
         ComPtr<ID3D12Fence> fence{};
 
@@ -868,6 +875,7 @@ struct Input
 {
     float2 position : POSITION;
     float4 color : COLOR;
+    float depth : TEXCOORD;
 };
 struct Output
 {
@@ -877,7 +885,7 @@ struct Output
 Output VSMain(Input input)
 {
     Output output;
-    output.position = float4(input.position, 0.0, 1.0);
+    output.position = float4(input.position, input.depth, 1.0);
     output.color = input.color;
     return output;
 }
@@ -954,7 +962,7 @@ float4 PSMain(Output input) : SV_TARGET
                     failure_message("Create debug-world root signature", hr));
             }
 
-            D3D12_INPUT_ELEMENT_DESC inputs[2]{};
+            D3D12_INPUT_ELEMENT_DESC inputs[3]{};
             inputs[0].SemanticName = "POSITION";
             inputs[0].Format = DXGI_FORMAT_R32G32_FLOAT;
             inputs[0].InputSlotClass =
@@ -964,6 +972,12 @@ float4 PSMain(Output input) : SV_TARGET
             inputs[1].AlignedByteOffset =
                 static_cast<UINT>(offsetof(DebugWorldVertex, red));
             inputs[1].InputSlotClass =
+                D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+            inputs[2].SemanticName = "TEXCOORD";
+            inputs[2].Format = DXGI_FORMAT_R32_FLOAT;
+            inputs[2].AlignedByteOffset =
+                static_cast<UINT>(offsetof(DebugWorldVertex, depth));
+            inputs[2].InputSlotClass =
                 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC pipeline{};
@@ -976,7 +990,7 @@ float4 PSMain(Output input) : SV_TARGET
                 pixel_shader->GetBufferPointer(),
                 pixel_shader->GetBufferSize()
             };
-            pipeline.InputLayout = {inputs, 2U};
+            pipeline.InputLayout = {inputs, 3U};
             pipeline.BlendState.AlphaToCoverageEnable = FALSE;
             pipeline.BlendState.IndependentBlendEnable = FALSE;
 
@@ -1003,16 +1017,17 @@ float4 PSMain(Output input) : SV_TARGET
             pipeline.RasterizerState.SlopeScaledDepthBias =
                 D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
             pipeline.RasterizerState.DepthClipEnable = TRUE;
-            pipeline.DepthStencilState.DepthEnable = FALSE;
+            pipeline.DepthStencilState.DepthEnable = TRUE;
             pipeline.DepthStencilState.DepthWriteMask =
                 D3D12_DEPTH_WRITE_MASK_ZERO;
             pipeline.DepthStencilState.DepthFunc =
-                D3D12_COMPARISON_FUNC_ALWAYS;
+                D3D12_COMPARISON_FUNC_LESS_EQUAL;
             pipeline.DepthStencilState.StencilEnable = FALSE;
             pipeline.PrimitiveTopologyType =
                 D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
             pipeline.NumRenderTargets = 1U;
             pipeline.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+            pipeline.DSVFormat = DXGI_FORMAT_D32_FLOAT;
             pipeline.SampleDesc.Count = 1U;
 
             hr = device->CreateGraphicsPipelineState(
@@ -1023,6 +1038,46 @@ float4 PSMain(Output input) : SV_TARGET
                 return foundation::fail(
                     foundation::ErrorCode::internal_failure,
                     failure_message("Create debug-world pipeline", hr));
+            }
+
+            // Opaque faces write depth; wireframe overlays only test.
+            D3D12_INPUT_ELEMENT_DESC solid_inputs[3]{};
+            solid_inputs[0] = inputs[0];
+            solid_inputs[1] = inputs[1];
+            solid_inputs[1].AlignedByteOffset =
+                static_cast<UINT>(
+                    offsetof(DebugWorldSolidVertex, red));
+            solid_inputs[2] = inputs[2];
+            solid_inputs[2].AlignedByteOffset =
+                static_cast<UINT>(
+                    offsetof(DebugWorldSolidVertex, depth));
+
+            pipeline.InputLayout = {solid_inputs, 3U};
+            pipeline.PrimitiveTopologyType =
+                D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+            pipeline.DepthStencilState.DepthWriteMask =
+                D3D12_DEPTH_WRITE_MASK_ALL;
+            hr = device->CreateGraphicsPipelineState(
+                &pipeline,
+                IID_PPV_ARGS(solid_pipeline.GetAddressOf()));
+            if (FAILED(hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Create solid-world pipeline", hr));
+            }
+
+            D3D12_DESCRIPTOR_HEAP_DESC dsv_heap{};
+            dsv_heap.NumDescriptors = 1U;
+            dsv_heap.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+            hr = device->CreateDescriptorHeap(
+                &dsv_heap,
+                IID_PPV_ARGS(depth_view_heap.GetAddressOf()));
+            if (FAILED(hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Create world depth descriptor heap", hr));
             }
 
             D3D12_HEAP_PROPERTIES heap{};
@@ -1053,6 +1108,26 @@ float4 PSMain(Output input) : SV_TARGET
                     return foundation::fail(
                         foundation::ErrorCode::out_of_memory,
                         failure_message("Create debug-world vertex buffer", hr));
+                }
+            }
+
+            buffer.Width =
+                sizeof(DebugWorldSolidVertex) * max_solid_vertices;
+            solid_vertex_buffers.resize(config.frame_buffer_count);
+            for (auto& resource : solid_vertex_buffers)
+            {
+                hr = device->CreateCommittedResource(
+                    &heap,
+                    D3D12_HEAP_FLAG_NONE,
+                    &buffer,
+                    D3D12_RESOURCE_STATE_GENERIC_READ,
+                    nullptr,
+                    IID_PPV_ARGS(resource.GetAddressOf()));
+                if (FAILED(hr))
+                {
+                    return foundation::fail(
+                        foundation::ErrorCode::out_of_memory,
+                        failure_message("Create solid-world vertex buffer", hr));
                 }
             }
 
@@ -1133,6 +1208,73 @@ float4 PSMain(Output input) : SV_TARGET
         }
 
         [[nodiscard]] foundation::Status
+        draw_solid_world(const DebugWorldScene& scene)
+        {
+            const float aspect =
+                static_cast<float>(width) /
+                static_cast<float>(height);
+            const auto geometry =
+                build_debug_world_solids(scene, aspect);
+            if (!geometry.has_value())
+            {
+                return foundation::fail(
+                    geometry.error().code,
+                    geometry.error().message);
+            }
+            if (geometry.value().size() > max_solid_vertices)
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::invalid_argument,
+                    "Solid-world vertex count exceeds GPU buffer.");
+            }
+
+            void* mapped{};
+            const D3D12_RANGE read_range{0U, 0U};
+            const HRESULT hr =
+                solid_vertex_buffers[frame_index]->Map(
+                    0U, &read_range, &mapped);
+            if (FAILED(hr) || mapped == nullptr)
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Map solid-world vertex buffer", hr));
+            }
+            const std::size_t bytes =
+                geometry.value().size() * sizeof(DebugWorldSolidVertex);
+            std::memcpy(mapped, geometry.value().data(), bytes);
+            const D3D12_RANGE written{0U, bytes};
+            solid_vertex_buffers[frame_index]->Unmap(0U, &written);
+
+            const D3D12_VIEWPORT viewport{
+                0.0F, 0.0F,
+                static_cast<float>(width),
+                static_cast<float>(height), 0.0F, 1.0F
+            };
+            const D3D12_RECT scissor{
+                0L, 0L, static_cast<LONG>(width),
+                static_cast<LONG>(height)
+            };
+            command_list->RSSetViewports(1U, &viewport);
+            command_list->RSSetScissorRects(1U, &scissor);
+            command_list->SetGraphicsRootSignature(
+                debug_root_signature.Get());
+            command_list->SetPipelineState(solid_pipeline.Get());
+            command_list->IASetPrimitiveTopology(
+                D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+            const D3D12_VERTEX_BUFFER_VIEW view{
+                solid_vertex_buffers[frame_index]->GetGPUVirtualAddress(),
+                static_cast<UINT>(bytes),
+                static_cast<UINT>(sizeof(DebugWorldSolidVertex))
+            };
+            command_list->IASetVertexBuffers(0U, 1U, &view);
+            command_list->DrawInstanced(
+                static_cast<UINT>(geometry.value().size()),
+                1U, 0U, 0U);
+            return {};
+        }
+
+        [[nodiscard]] foundation::Status
         create_render_targets()
         {
             render_targets.clear();
@@ -1175,6 +1317,41 @@ float4 PSMain(Output input) : SV_TARGET
                         render_target_view_descriptor_size);
             }
 
+            // Depth target shares the swapchain dimensions and is
+            // recreated after a GPU-idle resize.
+            depth_buffer.Reset();
+            D3D12_HEAP_PROPERTIES heap{};
+            heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+            D3D12_RESOURCE_DESC desc{};
+            desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+            desc.Width = width;
+            desc.Height = height;
+            desc.DepthOrArraySize = 1U;
+            desc.MipLevels = 1U;
+            desc.Format = DXGI_FORMAT_D32_FLOAT;
+            desc.SampleDesc.Count = 1U;
+            desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+            desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+            D3D12_CLEAR_VALUE clear{};
+            clear.Format = DXGI_FORMAT_D32_FLOAT;
+            clear.DepthStencil.Depth = 1.0F;
+            const HRESULT depth_hr = device->CreateCommittedResource(
+                &heap, D3D12_HEAP_FLAG_NONE,
+                &desc, D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                &clear, IID_PPV_ARGS(depth_buffer.GetAddressOf()));
+            if (FAILED(depth_hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Create world depth texture", depth_hr));
+            }
+            D3D12_DEPTH_STENCIL_VIEW_DESC view{};
+            view.Format = DXGI_FORMAT_D32_FLOAT;
+            view.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+            device->CreateDepthStencilView(
+                depth_buffer.Get(), &view,
+                depth_view_heap->GetCPUDescriptorHandleForHeapStart());
             return {};
         }
 
@@ -1381,11 +1558,13 @@ float4 PSMain(Output input) : SV_TARGET
                 static_cast<SIZE_T>(
                     render_target_view_descriptor_size);
 
+            D3D12_CPU_DESCRIPTOR_HANDLE depth_handle =
+                depth_view_heap->GetCPUDescriptorHandleForHeapStart();
             command_list->OMSetRenderTargets(
                 1U,
                 &render_target_handle,
                 FALSE,
-                nullptr);
+                scene == nullptr ? nullptr : &depth_handle);
 
             const float color[4]{
                 clear_color.red,
@@ -1402,11 +1581,23 @@ float4 PSMain(Output input) : SV_TARGET
 
             if (scene != nullptr)
             {
-                const foundation::Status geometry_status =
-                    draw_debug_world(*scene);
-                if (!geometry_status.has_value())
+                command_list->ClearDepthStencilView(
+                    depth_handle, D3D12_CLEAR_FLAG_DEPTH,
+                    1.0F, 0U, 0U, nullptr);
+                const foundation::Status solid_status =
+                    draw_solid_world(*scene);
+                if (!solid_status.has_value())
                 {
-                    return geometry_status;
+                    return solid_status;
+                }
+
+                // Depth-tested colored silhouettes first; overlay
+                // the old wireframe, grid and NPC posts afterward.
+                const foundation::Status outline_status =
+                    draw_debug_world(*scene);
+                if (!outline_status.has_value())
+                {
+                    return outline_status;
                 }
             }
 
@@ -1521,6 +1712,7 @@ float4 PSMain(Output input) : SV_TARGET
             {
                 target.Reset();
             }
+            depth_buffer.Reset();
 
             const HRESULT resize_result =
                 swap_chain->ResizeBuffers(
@@ -1631,8 +1823,12 @@ float4 PSMain(Output input) : SV_TARGET
 
             command_list.Reset();
             debug_vertex_buffers.clear();
+            solid_vertex_buffers.clear();
             debug_pipeline.Reset();
+            solid_pipeline.Reset();
             debug_root_signature.Reset();
+            depth_buffer.Reset();
+            depth_view_heap.Reset();
             command_allocators.clear();
             render_targets.clear();
 
