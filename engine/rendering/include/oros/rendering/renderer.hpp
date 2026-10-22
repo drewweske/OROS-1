@@ -1,6 +1,7 @@
 #pragma once
 
 #include "oros/foundation/result.hpp"
+#include "oros/rendering/debug_world_geometry.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -61,6 +62,13 @@ namespace oros::rendering
         [[nodiscard]] foundation::Status
         draw_frame(
             const ClearColor& clear_color);
+
+        // First opaque graybox: depth-tested ground and pitched-roof
+        // buildings, followed by World-relative outlines and NPC posts.
+        [[nodiscard]] foundation::Status
+        draw_world_frame(
+            const ClearColor& clear_color,
+            const DebugWorldScene& scene);
 
         [[nodiscard]] foundation::Status
         resize(

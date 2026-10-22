@@ -1,6 +1,8 @@
 #include "oros/platform/window.hpp"
 #include "oros/rendering/renderer.hpp"
 
+#include <array>
+
 #include <iostream>
 #include <string_view>
 #include <utility>
@@ -275,6 +277,31 @@ int main()
             second_frame_status.has_value(),
             "Renderer clears and presents another frame");
 
+        const std::array<DebugWorldMarker, 2> npc_markers{{
+            {3.0F, 12.0F, 1.0F, 0.5F, 0.2F},
+            {-4.0F, 8.0F, 0.2F, 0.9F, 0.5F}
+        }};
+        DebugWorldScene debug_world{};
+        debug_world.grid_phase_x = 1.0F;
+        debug_world.markers = npc_markers;
+        const std::array<DebugWorldLandmark, 2>
+            buildings{{
+                {12.0F, 25.0F, 8.0F, 6.0F, 7.0F,
+                 0.95F, 0.68F, 0.20F},
+                {-13.0F, 30.0F, 9.0F, 8.0F, 5.0F,
+                 0.70F, 0.40F, 0.90F}
+            }};
+        debug_world.landmarks = buildings;
+
+        const Status world_frame_status =
+            renderer.draw_world_frame(
+                first_color, debug_world);
+
+        check(
+            state,
+            world_frame_status.has_value(),
+            "Renderer submits depth-tested solid buildings and debug outlines");
+
         const Status first_idle_status =
             renderer.wait_idle();
 
@@ -305,6 +332,14 @@ int main()
             state,
             resized_frame_status.has_value(),
             "Renderer draws after a buffer resize");
+
+        // Resizing must also recreate the matching depth texture.
+        const Status resized_world_frame =
+            renderer.draw_world_frame(resized_color, debug_world);
+        check(
+            state,
+            resized_world_frame.has_value(),
+            "Opaque ground and buildings render after depth-buffer resize");
 
         const Status minimized_resize_status =
             renderer.resize(0U, 0U);

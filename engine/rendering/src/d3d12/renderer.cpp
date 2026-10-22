@@ -5,11 +5,15 @@
 
 #include <Windows.h>
 #include <d3d12.h>
+#include <d3dcompiler.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <limits>
 #include <iomanip>
 #include <memory>
 #include <sstream>
@@ -160,6 +164,21 @@ namespace oros::rendering
         ComPtr<ID3D12GraphicsCommandList>
             command_list{};
 
+        // Debug-world PSO and upload buffers live with this renderer.
+        ComPtr<ID3D12RootSignature> debug_root_signature{};
+        ComPtr<ID3D12PipelineState> debug_pipeline{};
+        ComPtr<ID3D12PipelineState> solid_pipeline{};
+        std::vector<ComPtr<ID3D12Resource>>
+            debug_vertex_buffers{};
+        std::vector<ComPtr<ID3D12Resource>>
+            solid_vertex_buffers{};
+
+        ComPtr<ID3D12DescriptorHeap> depth_view_heap{};
+        ComPtr<ID3D12Resource> depth_buffer{};
+
+        static constexpr std::size_t max_debug_vertices = 1024U;
+        static constexpr std::size_t max_solid_vertices = 2048U;
+
         ComPtr<ID3D12Fence> fence{};
 
         HANDLE fence_event{};
@@ -299,6 +318,13 @@ namespace oros::rendering
             }
 
             status = create_command_list();
+
+            if (!status.has_value())
+            {
+                return status;
+            }
+
+            status = create_debug_world_pipeline();
 
             if (!status.has_value())
             {
@@ -839,6 +865,415 @@ namespace oros::rendering
             return {};
         }
 
+        // Minimal programmable line pipeline used only for the
+        // first graybox world. No gameplay state enters D3D12.
+        [[nodiscard]] foundation::Status
+        create_debug_world_pipeline()
+        {
+            static constexpr char shader_source[] = R"(
+struct Input
+{
+    float2 position : POSITION;
+    float4 color : COLOR;
+    float depth : TEXCOORD;
+};
+struct Output
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+Output VSMain(Input input)
+{
+    Output output;
+    output.position = float4(input.position, input.depth, 1.0);
+    output.color = input.color;
+    return output;
+}
+float4 PSMain(Output input) : SV_TARGET
+{
+    return input.color;
+}
+)";
+
+            ComPtr<ID3DBlob> vertex_shader{};
+            ComPtr<ID3DBlob> pixel_shader{};
+            ComPtr<ID3DBlob> errors{};
+
+            HRESULT hr = D3DCompile(
+                shader_source,
+                sizeof(shader_source) - 1U,
+                nullptr, nullptr, nullptr,
+                "VSMain", "vs_5_0", 0U, 0U,
+                vertex_shader.GetAddressOf(),
+                errors.GetAddressOf());
+
+            if (FAILED(hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Compile debug-world VS", hr));
+            }
+
+            errors.Reset();
+            hr = D3DCompile(
+                shader_source,
+                sizeof(shader_source) - 1U,
+                nullptr, nullptr, nullptr,
+                "PSMain", "ps_5_0", 0U, 0U,
+                pixel_shader.GetAddressOf(),
+                errors.GetAddressOf());
+
+            if (FAILED(hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Compile debug-world PS", hr));
+            }
+
+            D3D12_ROOT_SIGNATURE_DESC root_description{};
+            root_description.Flags =
+                D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+            ComPtr<ID3DBlob> serialized_root{};
+            errors.Reset();
+            hr = D3D12SerializeRootSignature(
+                &root_description,
+                D3D_ROOT_SIGNATURE_VERSION_1,
+                serialized_root.GetAddressOf(),
+                errors.GetAddressOf());
+
+            if (FAILED(hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Serialize debug-world root signature", hr));
+            }
+
+            hr = device->CreateRootSignature(
+                0U,
+                serialized_root->GetBufferPointer(),
+                serialized_root->GetBufferSize(),
+                IID_PPV_ARGS(debug_root_signature.GetAddressOf()));
+
+            if (FAILED(hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Create debug-world root signature", hr));
+            }
+
+            D3D12_INPUT_ELEMENT_DESC inputs[3]{};
+            inputs[0].SemanticName = "POSITION";
+            inputs[0].Format = DXGI_FORMAT_R32G32_FLOAT;
+            inputs[0].InputSlotClass =
+                D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+            inputs[1].SemanticName = "COLOR";
+            inputs[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+            inputs[1].AlignedByteOffset =
+                static_cast<UINT>(offsetof(DebugWorldVertex, red));
+            inputs[1].InputSlotClass =
+                D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+            inputs[2].SemanticName = "TEXCOORD";
+            inputs[2].Format = DXGI_FORMAT_R32_FLOAT;
+            inputs[2].AlignedByteOffset =
+                static_cast<UINT>(offsetof(DebugWorldVertex, depth));
+            inputs[2].InputSlotClass =
+                D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+
+            D3D12_GRAPHICS_PIPELINE_STATE_DESC pipeline{};
+            pipeline.pRootSignature = debug_root_signature.Get();
+            pipeline.VS = {
+                vertex_shader->GetBufferPointer(),
+                vertex_shader->GetBufferSize()
+            };
+            pipeline.PS = {
+                pixel_shader->GetBufferPointer(),
+                pixel_shader->GetBufferSize()
+            };
+            pipeline.InputLayout = {inputs, 3U};
+            pipeline.BlendState.AlphaToCoverageEnable = FALSE;
+            pipeline.BlendState.IndependentBlendEnable = FALSE;
+
+            D3D12_RENDER_TARGET_BLEND_DESC blend{};
+            blend.BlendEnable = FALSE;
+            blend.LogicOpEnable = FALSE;
+            blend.SrcBlend = D3D12_BLEND_ONE;
+            blend.DestBlend = D3D12_BLEND_ZERO;
+            blend.BlendOp = D3D12_BLEND_OP_ADD;
+            blend.SrcBlendAlpha = D3D12_BLEND_ONE;
+            blend.DestBlendAlpha = D3D12_BLEND_ZERO;
+            blend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+            blend.LogicOp = D3D12_LOGIC_OP_NOOP;
+            blend.RenderTargetWriteMask =
+                D3D12_COLOR_WRITE_ENABLE_ALL;
+            pipeline.BlendState.RenderTarget[0] = blend;
+
+            pipeline.SampleMask = (std::numeric_limits<UINT>::max)();
+            pipeline.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+            pipeline.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+            pipeline.RasterizerState.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+            pipeline.RasterizerState.DepthBiasClamp =
+                D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+            pipeline.RasterizerState.SlopeScaledDepthBias =
+                D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+            pipeline.RasterizerState.DepthClipEnable = TRUE;
+            pipeline.DepthStencilState.DepthEnable = TRUE;
+            pipeline.DepthStencilState.DepthWriteMask =
+                D3D12_DEPTH_WRITE_MASK_ZERO;
+            pipeline.DepthStencilState.DepthFunc =
+                D3D12_COMPARISON_FUNC_LESS_EQUAL;
+            pipeline.DepthStencilState.StencilEnable = FALSE;
+            pipeline.PrimitiveTopologyType =
+                D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+            pipeline.NumRenderTargets = 1U;
+            pipeline.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+            pipeline.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+            pipeline.SampleDesc.Count = 1U;
+
+            hr = device->CreateGraphicsPipelineState(
+                &pipeline,
+                IID_PPV_ARGS(debug_pipeline.GetAddressOf()));
+            if (FAILED(hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Create debug-world pipeline", hr));
+            }
+
+            // Opaque faces write depth; wireframe overlays only test.
+            D3D12_INPUT_ELEMENT_DESC solid_inputs[3]{};
+            solid_inputs[0] = inputs[0];
+            solid_inputs[1] = inputs[1];
+            solid_inputs[1].AlignedByteOffset =
+                static_cast<UINT>(
+                    offsetof(DebugWorldSolidVertex, red));
+            solid_inputs[2] = inputs[2];
+            solid_inputs[2].AlignedByteOffset =
+                static_cast<UINT>(
+                    offsetof(DebugWorldSolidVertex, depth));
+
+            pipeline.InputLayout = {solid_inputs, 3U};
+            pipeline.PrimitiveTopologyType =
+                D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+            pipeline.DepthStencilState.DepthWriteMask =
+                D3D12_DEPTH_WRITE_MASK_ALL;
+            hr = device->CreateGraphicsPipelineState(
+                &pipeline,
+                IID_PPV_ARGS(solid_pipeline.GetAddressOf()));
+            if (FAILED(hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Create solid-world pipeline", hr));
+            }
+
+            D3D12_DESCRIPTOR_HEAP_DESC dsv_heap{};
+            dsv_heap.NumDescriptors = 1U;
+            dsv_heap.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+            hr = device->CreateDescriptorHeap(
+                &dsv_heap,
+                IID_PPV_ARGS(depth_view_heap.GetAddressOf()));
+            if (FAILED(hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Create world depth descriptor heap", hr));
+            }
+
+            D3D12_HEAP_PROPERTIES heap{};
+            heap.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+            D3D12_RESOURCE_DESC buffer{};
+            buffer.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            buffer.Width =
+                sizeof(DebugWorldVertex) * max_debug_vertices;
+            buffer.Height = 1U;
+            buffer.DepthOrArraySize = 1U;
+            buffer.MipLevels = 1U;
+            buffer.SampleDesc.Count = 1U;
+            buffer.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+            debug_vertex_buffers.resize(config.frame_buffer_count);
+            for (auto& resource : debug_vertex_buffers)
+            {
+                hr = device->CreateCommittedResource(
+                    &heap,
+                    D3D12_HEAP_FLAG_NONE,
+                    &buffer,
+                    D3D12_RESOURCE_STATE_GENERIC_READ,
+                    nullptr,
+                    IID_PPV_ARGS(resource.GetAddressOf()));
+                if (FAILED(hr))
+                {
+                    return foundation::fail(
+                        foundation::ErrorCode::out_of_memory,
+                        failure_message("Create debug-world vertex buffer", hr));
+                }
+            }
+
+            buffer.Width =
+                sizeof(DebugWorldSolidVertex) * max_solid_vertices;
+            solid_vertex_buffers.resize(config.frame_buffer_count);
+            for (auto& resource : solid_vertex_buffers)
+            {
+                hr = device->CreateCommittedResource(
+                    &heap,
+                    D3D12_HEAP_FLAG_NONE,
+                    &buffer,
+                    D3D12_RESOURCE_STATE_GENERIC_READ,
+                    nullptr,
+                    IID_PPV_ARGS(resource.GetAddressOf()));
+                if (FAILED(hr))
+                {
+                    return foundation::fail(
+                        foundation::ErrorCode::out_of_memory,
+                        failure_message("Create solid-world vertex buffer", hr));
+                }
+            }
+
+            return {};
+        }
+
+        [[nodiscard]] foundation::Status
+        draw_debug_world(
+            const DebugWorldScene& scene)
+        {
+            const float aspect =
+                static_cast<float>(width) /
+                static_cast<float>(height);
+            auto geometry = build_debug_world_lines(scene, aspect);
+            if (!geometry.has_value())
+            {
+                return foundation::fail(
+                    geometry.error().code,
+                    geometry.error().message);
+            }
+
+            if (geometry.value().size() > max_debug_vertices)
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::invalid_argument,
+                    "Debug-world vertex count exceeds GPU buffer.");
+            }
+
+            void* mapped{};
+            const D3D12_RANGE read_range{0U, 0U};
+            const HRESULT map_result =
+                debug_vertex_buffers[frame_index]->Map(
+                    0U, &read_range, &mapped);
+            if (FAILED(map_result) || mapped == nullptr)
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Map debug-world vertex buffer", map_result));
+            }
+
+            const std::size_t bytes =
+                geometry.value().size() * sizeof(DebugWorldVertex);
+            std::memcpy(mapped, geometry.value().data(), bytes);
+            const D3D12_RANGE written{0U, bytes};
+            debug_vertex_buffers[frame_index]->Unmap(0U, &written);
+
+            const D3D12_VIEWPORT viewport{
+                0.0F, 0.0F,
+                static_cast<float>(width),
+                static_cast<float>(height),
+                0.0F, 1.0F
+            };
+            const D3D12_RECT scissor{
+                0L, 0L,
+                static_cast<LONG>(width),
+                static_cast<LONG>(height)
+            };
+            command_list->RSSetViewports(1U, &viewport);
+            command_list->RSSetScissorRects(1U, &scissor);
+            command_list->SetGraphicsRootSignature(
+                debug_root_signature.Get());
+            command_list->SetPipelineState(
+                debug_pipeline.Get());
+            command_list->IASetPrimitiveTopology(
+                D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+
+            const D3D12_VERTEX_BUFFER_VIEW view{
+                debug_vertex_buffers[frame_index]->GetGPUVirtualAddress(),
+                static_cast<UINT>(bytes),
+                static_cast<UINT>(sizeof(DebugWorldVertex))
+            };
+            command_list->IASetVertexBuffers(0U, 1U, &view);
+            command_list->DrawInstanced(
+                static_cast<UINT>(geometry.value().size()),
+                1U, 0U, 0U);
+
+            return {};
+        }
+
+        [[nodiscard]] foundation::Status
+        draw_solid_world(const DebugWorldScene& scene)
+        {
+            const float aspect =
+                static_cast<float>(width) /
+                static_cast<float>(height);
+            const auto geometry =
+                build_debug_world_solids(scene, aspect);
+            if (!geometry.has_value())
+            {
+                return foundation::fail(
+                    geometry.error().code,
+                    geometry.error().message);
+            }
+            if (geometry.value().size() > max_solid_vertices)
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::invalid_argument,
+                    "Solid-world vertex count exceeds GPU buffer.");
+            }
+
+            void* mapped{};
+            const D3D12_RANGE read_range{0U, 0U};
+            const HRESULT hr =
+                solid_vertex_buffers[frame_index]->Map(
+                    0U, &read_range, &mapped);
+            if (FAILED(hr) || mapped == nullptr)
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Map solid-world vertex buffer", hr));
+            }
+            const std::size_t bytes =
+                geometry.value().size() * sizeof(DebugWorldSolidVertex);
+            std::memcpy(mapped, geometry.value().data(), bytes);
+            const D3D12_RANGE written{0U, bytes};
+            solid_vertex_buffers[frame_index]->Unmap(0U, &written);
+
+            const D3D12_VIEWPORT viewport{
+                0.0F, 0.0F,
+                static_cast<float>(width),
+                static_cast<float>(height), 0.0F, 1.0F
+            };
+            const D3D12_RECT scissor{
+                0L, 0L, static_cast<LONG>(width),
+                static_cast<LONG>(height)
+            };
+            command_list->RSSetViewports(1U, &viewport);
+            command_list->RSSetScissorRects(1U, &scissor);
+            command_list->SetGraphicsRootSignature(
+                debug_root_signature.Get());
+            command_list->SetPipelineState(solid_pipeline.Get());
+            command_list->IASetPrimitiveTopology(
+                D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+            const D3D12_VERTEX_BUFFER_VIEW view{
+                solid_vertex_buffers[frame_index]->GetGPUVirtualAddress(),
+                static_cast<UINT>(bytes),
+                static_cast<UINT>(sizeof(DebugWorldSolidVertex))
+            };
+            command_list->IASetVertexBuffers(0U, 1U, &view);
+            command_list->DrawInstanced(
+                static_cast<UINT>(geometry.value().size()),
+                1U, 0U, 0U);
+            return {};
+        }
+
         [[nodiscard]] foundation::Status
         create_render_targets()
         {
@@ -882,6 +1317,41 @@ namespace oros::rendering
                         render_target_view_descriptor_size);
             }
 
+            // Depth target shares the swapchain dimensions and is
+            // recreated after a GPU-idle resize.
+            depth_buffer.Reset();
+            D3D12_HEAP_PROPERTIES heap{};
+            heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+            D3D12_RESOURCE_DESC desc{};
+            desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+            desc.Width = width;
+            desc.Height = height;
+            desc.DepthOrArraySize = 1U;
+            desc.MipLevels = 1U;
+            desc.Format = DXGI_FORMAT_D32_FLOAT;
+            desc.SampleDesc.Count = 1U;
+            desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+            desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+            D3D12_CLEAR_VALUE clear{};
+            clear.Format = DXGI_FORMAT_D32_FLOAT;
+            clear.DepthStencil.Depth = 1.0F;
+            const HRESULT depth_hr = device->CreateCommittedResource(
+                &heap, D3D12_HEAP_FLAG_NONE,
+                &desc, D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                &clear, IID_PPV_ARGS(depth_buffer.GetAddressOf()));
+            if (FAILED(depth_hr))
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::internal_failure,
+                    failure_message("Create world depth texture", depth_hr));
+            }
+            D3D12_DEPTH_STENCIL_VIEW_DESC view{};
+            view.Format = DXGI_FORMAT_D32_FLOAT;
+            view.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+            device->CreateDepthStencilView(
+                depth_buffer.Get(), &view,
+                depth_view_heap->GetCPUDescriptorHandleForHeapStart());
             return {};
         }
 
@@ -1007,7 +1477,9 @@ namespace oros::rendering
         }
 
         [[nodiscard]] foundation::Status
-        draw(const ClearColor& clear_color)
+        draw(
+            const ClearColor& clear_color,
+            const DebugWorldScene* scene)
         {
             if (!ready)
             {
@@ -1086,11 +1558,13 @@ namespace oros::rendering
                 static_cast<SIZE_T>(
                     render_target_view_descriptor_size);
 
+            D3D12_CPU_DESCRIPTOR_HANDLE depth_handle =
+                depth_view_heap->GetCPUDescriptorHandleForHeapStart();
             command_list->OMSetRenderTargets(
                 1U,
                 &render_target_handle,
                 FALSE,
-                nullptr);
+                scene == nullptr ? nullptr : &depth_handle);
 
             const float color[4]{
                 clear_color.red,
@@ -1104,6 +1578,28 @@ namespace oros::rendering
                 color,
                 0U,
                 nullptr);
+
+            if (scene != nullptr)
+            {
+                command_list->ClearDepthStencilView(
+                    depth_handle, D3D12_CLEAR_FLAG_DEPTH,
+                    1.0F, 0U, 0U, nullptr);
+                const foundation::Status solid_status =
+                    draw_solid_world(*scene);
+                if (!solid_status.has_value())
+                {
+                    return solid_status;
+                }
+
+                // Depth-tested colored silhouettes first; overlay
+                // the old wireframe, grid and NPC posts afterward.
+                const foundation::Status outline_status =
+                    draw_debug_world(*scene);
+                if (!outline_status.has_value())
+                {
+                    return outline_status;
+                }
+            }
 
             D3D12_RESOURCE_BARRIER
                 to_present{};
@@ -1216,6 +1712,7 @@ namespace oros::rendering
             {
                 target.Reset();
             }
+            depth_buffer.Reset();
 
             const HRESULT resize_result =
                 swap_chain->ResizeBuffers(
@@ -1325,6 +1822,13 @@ namespace oros::rendering
             ready = false;
 
             command_list.Reset();
+            debug_vertex_buffers.clear();
+            solid_vertex_buffers.clear();
+            debug_pipeline.Reset();
+            solid_pipeline.Reset();
+            debug_root_signature.Reset();
+            depth_buffer.Reset();
+            depth_view_heap.Reset();
             command_allocators.clear();
             render_targets.clear();
 
@@ -1402,7 +1906,22 @@ namespace oros::rendering
         }
 
         return implementation_->draw(
-            clear_color);
+            clear_color, nullptr);
+    }
+
+    foundation::Status
+    Renderer::draw_world_frame(
+        const ClearColor& clear_color,
+        const DebugWorldScene& scene)
+    {
+        if (implementation_ == nullptr)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::invalid_state,
+                "Renderer has no implementation.");
+        }
+
+        return implementation_->draw(clear_color, &scene);
     }
 
     foundation::Status

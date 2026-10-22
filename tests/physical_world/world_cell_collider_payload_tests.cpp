@@ -261,8 +261,8 @@ int main()
     check(
         state,
         world_cell_collider_payload_schema_version ==
-            1U,
-        "Collider payload schema begins at version one");
+            2U,
+        "Collider payload schema advances to version two");
 
     check(
         state,
@@ -464,8 +464,8 @@ int main()
             capsule_id,
             capsule_shape_result.value(),
             PhysicsVector3{
-                511.5,
-                -512.0,
+                100.5,
+                -100.0,
                 0.75
             });
 
@@ -763,7 +763,7 @@ int main()
         patch_u32(
             corrupted,
             12U,
-            2U);
+            1U);
 
         refresh_checksum(
             corrupted);
@@ -776,7 +776,30 @@ int main()
                     corrupted
                 }),
             ErrorCode::invalid_argument,
-            "Deserialization rejects unsupported schema version");
+            "Deserialization rejects prior collider schema without migration");
+    }
+
+    {
+        std::vector<std::byte> corrupted =
+            payload;
+
+        patch_u32(
+            corrupted,
+            12U,
+            3U);
+
+        refresh_checksum(
+            corrupted);
+
+        check_failure(
+            state,
+            deserialize_world_cell_collider_payload(
+                cell_key,
+                std::span<const std::byte>{
+                    corrupted
+                }),
+            ErrorCode::invalid_argument,
+            "Deserialization rejects unsupported future schema version");
     }
 
     {
@@ -1063,6 +1086,30 @@ int main()
                 }),
             ErrorCode::invalid_argument,
             "Deserialization rejects noncanonical local center");
+    }
+
+    {
+        std::vector<std::byte> corrupted =
+            payload;
+
+        patch_f64(
+            corrupted,
+            80U,
+            world_cell_half_extent_meters -
+                1.0);
+
+        refresh_checksum(
+            corrupted);
+
+        check_failure(
+            state,
+            deserialize_world_cell_collider_payload(
+                cell_key,
+                std::span<const std::byte>{
+                    corrupted
+                }),
+            ErrorCode::invalid_argument,
+            "Deserialization rejects canonical-center collider bounds crossing cell boundary");
     }
 
     {

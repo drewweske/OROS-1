@@ -1,5 +1,11 @@
+#include "live_ai_actor_demo.hpp"
+#include "live_ai_perception_group_demo.hpp"
 #include "live_player_demo.hpp"
+#include "navigation_demo.hpp"
+#include "live_debug_world_scene.hpp"
 
+#include "oros/ai/navigation_obstacle_overlay.hpp"
+#include "oros/ai/navigation_search.hpp"
 #include "oros/foundation/clock.hpp"
 #include "oros/foundation/log.hpp"
 #include "oros/physical_world/world_first_person_controller.hpp"
@@ -9,9 +15,12 @@
 #include "oros/runtime/engine_runtime.hpp"
 #include "oros/world/world.hpp"
 
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -321,6 +330,966 @@ int main()
 
     const auto& physical_world_demo =
         live_player_demo.physical_world;
+
+    Result<oros::bootstrap::NavigationDemo>
+        navigation_demo_result =
+            oros::bootstrap::
+                create_navigation_demo();
+
+    if (!navigation_demo_result.has_value())
+    {
+        const Error& error =
+            navigation_demo_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "navigation",
+            "Bootstrap navigation topology creation "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS bootstrap navigation topology "
+            << "creation failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    oros::bootstrap::NavigationDemo
+        navigation_demo{
+            std::move(
+                navigation_demo_result.value())
+        };
+
+    const oros::ai::
+        NavigationObstacleOverlay
+        navigation_overlay{};
+
+    Result<oros::ai::NavigationSearchResult>
+        complete_navigation_result =
+            oros::ai::
+                search_navigation_route(
+                    navigation_demo.topology,
+                    navigation_overlay,
+                    navigation_demo.start_node,
+                    navigation_demo.
+                        complete_destination);
+
+    if (!complete_navigation_result.has_value())
+    {
+        const Error& error =
+            complete_navigation_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "navigation",
+            "Bootstrap complete navigation proof "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS complete navigation proof "
+            << "failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    Result<oros::ai::NavigationSearchResult>
+        partial_navigation_result =
+            oros::ai::
+                search_navigation_route(
+                    navigation_demo.topology,
+                    navigation_overlay,
+                    navigation_demo.start_node,
+                    navigation_demo.
+                        partial_destination);
+
+    if (!partial_navigation_result.has_value())
+    {
+        const Error& error =
+            partial_navigation_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "navigation",
+            "Bootstrap partial navigation proof "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS partial navigation proof "
+            << "failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    if (
+        navigation_demo.topology.size() != 2U ||
+        complete_navigation_result.
+                value().kind() !=
+            oros::ai::
+                NavigationSearchResultKind::
+                    complete ||
+        partial_navigation_result.
+                value().kind() !=
+            oros::ai::
+                NavigationSearchResultKind::
+                    partial)
+    {
+        write_log(
+            LogLevel::critical,
+            "navigation",
+            "Bootstrap navigation composition did "
+            "not preserve the ratified complete/"
+            "partial proof contract.");
+
+        std::cerr
+            << "OROS bootstrap navigation proof "
+            << "contract failed.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    write_log(
+        LogLevel::info,
+        "navigation",
+        "Authored bootstrap navigation topology "
+        "supplied two cells; complete and partial "
+        "route proofs passed.");
+
+    Result<oros::bootstrap::LiveAiActorDemo>
+        live_ai_actor_demo_result =
+            oros::bootstrap::
+                create_live_ai_actor_demo(
+                    world,
+                    navigation_demo);
+
+    if (!live_ai_actor_demo_result.has_value())
+    {
+        const Error& error =
+            live_ai_actor_demo_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor composition failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI actor composition "
+            << "failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    oros::bootstrap::LiveAiActorDemo
+        live_ai_actor_demo{
+            std::move(
+                live_ai_actor_demo_result.value())
+        };
+
+    const EntityId live_ai_actor_entity =
+        live_ai_actor_demo.actor;
+
+    const oros::ai::NavigationCellTopology*
+        live_ai_navigation_cell =
+            navigation_demo.
+                topology.
+                find_cell_topology(
+                    navigation_demo.
+                        start_node.
+                        cell);
+
+    const oros::ai::NavigationNodeRecord*
+        live_ai_navigation_anchor =
+            nullptr;
+
+    if (live_ai_navigation_cell != nullptr)
+    {
+        for (
+            const oros::ai::
+                NavigationNodeRecord&
+                node :
+            live_ai_navigation_cell->
+                nodes_in_canonical_order())
+        {
+            if (
+                node.id() ==
+                navigation_demo.start_node)
+            {
+                live_ai_navigation_anchor =
+                    &node;
+
+                break;
+            }
+        }
+    }
+
+    const WorldPosition*
+        live_ai_actor_position =
+            world.find_position(
+                live_ai_actor_entity);
+
+    const auto&
+        live_ai_persistent_intent =
+            live_ai_actor_demo.
+                schedule_execution.
+                persistent_intent();
+
+    const auto
+        live_ai_memberships =
+            live_ai_actor_demo.
+                faction_memberships.
+                memberships_in_canonical_order();
+
+    Result<
+        oros::ai::ActorSimulationFidelity>
+        live_ai_fidelity_result =
+            live_ai_actor_demo.
+                fidelity_registry.
+                fidelity(
+                    live_ai_actor_entity);
+
+    Result<oros::ai::NavigationSearchResult>
+        live_ai_navigation_result =
+            oros::ai::
+                search_navigation_route(
+                    navigation_demo.topology,
+                    navigation_overlay,
+                    navigation_demo.start_node,
+                    navigation_demo.
+                        complete_destination);
+
+    if (!live_ai_navigation_result.has_value())
+    {
+        const Error& error =
+            live_ai_navigation_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor navigation proof "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI actor navigation "
+            << "proof failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const oros::ai::NavigationRoute*
+        live_ai_route =
+            live_ai_navigation_result.
+                value().
+                route();
+
+    bool
+        live_ai_route_starts_at_anchor =
+            false;
+
+    if (live_ai_route != nullptr)
+    {
+        const auto route_nodes =
+            live_ai_route->
+                nodes_in_traversal_order();
+
+        live_ai_route_starts_at_anchor =
+            !route_nodes.empty() &&
+            route_nodes.front() ==
+                navigation_demo.start_node;
+    }
+
+    const bool
+        live_ai_actor_contract_valid =
+            live_ai_actor_entity.is_valid() &&
+            live_ai_actor_entity !=
+                bootstrap_entity &&
+            live_ai_actor_entity !=
+                player_entity &&
+            live_ai_actor_entity !=
+                floor_entity &&
+            world.contains(
+                live_ai_actor_entity) &&
+            live_ai_navigation_anchor !=
+                nullptr &&
+            live_ai_actor_position !=
+                nullptr &&
+            *live_ai_actor_position ==
+                live_ai_navigation_anchor->
+                    position() &&
+            live_ai_actor_demo.
+                    schedule.
+                    size() ==
+                1U &&
+            live_ai_actor_demo.
+                    schedule_execution.
+                    actor() ==
+                live_ai_actor_entity &&
+            live_ai_persistent_intent.
+                has_value() &&
+            live_ai_persistent_intent->
+                    intent_namespace() ==
+                "oros" &&
+            live_ai_persistent_intent->
+                    intent_name() ==
+                "work" &&
+            !live_ai_actor_demo.
+                schedule_execution.
+                is_interrupted() &&
+            live_ai_memberships.size() ==
+                1U &&
+            live_ai_memberships.front().
+                    actor() ==
+                live_ai_actor_entity &&
+            live_ai_memberships.front().
+                    faction().
+                    faction_namespace() ==
+                "oros" &&
+            live_ai_memberships.front().
+                    faction().
+                    faction_name() ==
+                "citizens" &&
+            live_ai_fidelity_result.
+                has_value() &&
+            live_ai_fidelity_result.
+                    value() ==
+                oros::ai::
+                    ActorSimulationFidelity::
+                        deep_local &&
+            live_ai_navigation_result.
+                    value().kind() ==
+                oros::ai::
+                    NavigationSearchResultKind::
+                        complete &&
+            live_ai_route_starts_at_anchor;
+
+    if (!live_ai_actor_contract_valid)
+    {
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor composition did not "
+            "preserve the ratified World/schedule/"
+            "faction/fidelity/navigation contract.");
+
+        std::cerr
+            << "OROS live AI actor composition "
+            << "contract failed.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    write_log(
+        LogLevel::info,
+        "ai",
+        "Live AI actor " +
+            oros::world::to_string(
+                live_ai_actor_entity) +
+            " composed with World-owned position, "
+            "schedule intent, faction membership, "
+            "deep-local fidelity, and navigation "
+            "proof.");
+
+    Status
+        live_ai_interruption_status =
+            live_ai_actor_demo.
+                schedule_execution.
+                begin_interruption();
+
+    if (!live_ai_interruption_status.has_value())
+    {
+        const Error& error =
+            live_ai_interruption_status.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor interruption proof "
+            "failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI actor interruption "
+            << "proof failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const WorldPosition
+        live_ai_transfer_position =
+            *live_ai_actor_position;
+
+    Result<
+        oros::ai::ActorSimulationFocusPolicy>
+        live_ai_focus_policy_result =
+            oros::ai::
+                ActorSimulationFocusPolicy::
+                    create(
+                        oros::world::
+                                world_cell_extent_meters *
+                            2.0,
+                        oros::world::
+                                world_cell_extent_meters *
+                            2.0);
+
+    if (!live_ai_focus_policy_result.has_value())
+    {
+        const Error& error =
+            live_ai_focus_policy_result.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor fidelity policy "
+            "creation failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI actor fidelity policy "
+            << "creation failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const oros::ai::
+        ActorSimulationFocusSourceRegistry
+        empty_live_ai_focus_sources{};
+
+    Result<
+        oros::ai::
+            ActorSimulationFidelityTransition>
+        live_ai_demotion_result =
+            oros::bootstrap::
+                apply_live_ai_actor_simulation_focus(
+                    world,
+                    live_ai_actor_demo,
+                    live_ai_focus_policy_result.
+                        value(),
+                    empty_live_ai_focus_sources);
+
+    if (
+        !live_ai_demotion_result.has_value() ||
+        live_ai_demotion_result.value() !=
+            oros::ai::
+                ActorSimulationFidelityTransition::
+                    demotion_to_statistical_distant)
+    {
+        if (!live_ai_demotion_result.has_value())
+        {
+            const Error& error =
+                live_ai_demotion_result.error();
+
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Live AI actor deterministic "
+                "demotion failed: [" +
+                    std::string{
+                        to_string(error.code)} +
+                    "] " +
+                    error.message);
+
+            std::cerr
+                << "OROS live AI actor demotion "
+                << "failed: ["
+                << to_string(error.code)
+                << "] "
+                << error.message
+                << '\n';
+        }
+        else
+        {
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Live AI actor focus decision did "
+                "not produce the required "
+                "deep-local to statistical-distant "
+                "demotion.");
+
+            std::cerr
+                << "OROS live AI actor demotion "
+                << "transition contract failed.\n";
+        }
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const Result<
+        oros::ai::ActorSimulationFidelity>
+        live_ai_distant_fidelity =
+            live_ai_actor_demo.
+                fidelity_registry.
+                fidelity(
+                    live_ai_actor_entity);
+
+    const WorldPosition*
+        live_ai_distant_position =
+            world.find_position(
+                live_ai_actor_entity);
+
+    const auto&
+        live_ai_distant_intent =
+            live_ai_actor_demo.
+                schedule_execution.
+                persistent_intent();
+
+    const auto
+        live_ai_distant_memberships =
+            live_ai_actor_demo.
+                faction_memberships.
+                memberships_in_canonical_order();
+
+    const bool
+        live_ai_distant_continuity_valid =
+            live_ai_actor_demo.actor ==
+                live_ai_actor_entity &&
+            world.contains(
+                live_ai_actor_entity) &&
+            live_ai_distant_position !=
+                nullptr &&
+            *live_ai_distant_position ==
+                live_ai_transfer_position &&
+            live_ai_distant_fidelity.
+                has_value() &&
+            live_ai_distant_fidelity.
+                    value() ==
+                oros::ai::
+                    ActorSimulationFidelity::
+                        statistical_distant &&
+            live_ai_distant_intent.
+                has_value() &&
+            live_ai_distant_intent->
+                    intent_namespace() ==
+                "oros" &&
+            live_ai_distant_intent->
+                    intent_name() ==
+                "work" &&
+            live_ai_actor_demo.
+                schedule_execution.
+                is_interrupted() &&
+            live_ai_distant_memberships.size() ==
+                1U &&
+            live_ai_distant_memberships.front().
+                    actor() ==
+                live_ai_actor_entity &&
+            live_ai_distant_memberships.front().
+                    faction().
+                    faction_namespace() ==
+                "oros" &&
+            live_ai_distant_memberships.front().
+                    faction().
+                    faction_name() ==
+                "citizens";
+
+    if (!live_ai_distant_continuity_valid)
+    {
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor demotion did not "
+            "preserve meaningful actor continuity.");
+
+        std::cerr
+            << "OROS live AI actor demotion "
+            << "continuity contract failed.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const WorldPosition*
+        live_ai_player_focus_position =
+            world.find_position(
+                player_entity);
+
+    if (live_ai_player_focus_position == nullptr)
+    {
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Player WorldPosition was unavailable "
+            "for the live AI promotion proof.");
+
+        std::cerr
+            << "OROS live AI promotion focus "
+            << "position unavailable.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    oros::ai::
+        ActorSimulationFocusSourceRegistry
+        live_ai_focus_sources{};
+
+    Status
+        live_ai_focus_source_status =
+            live_ai_focus_sources.insert(
+                player_entity,
+                *live_ai_player_focus_position);
+
+    if (!live_ai_focus_source_status.has_value())
+    {
+        const Error& error =
+            live_ai_focus_source_status.error();
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI promotion focus-source "
+            "registration failed: [" +
+                std::string{
+                    to_string(error.code)} +
+                "] " +
+                error.message);
+
+        std::cerr
+            << "OROS live AI promotion focus "
+            << "registration failed: ["
+            << to_string(error.code)
+            << "] "
+            << error.message
+            << '\n';
+
+        shutdown_logging();
+        return 1;
+    }
+
+    Result<
+        oros::ai::
+            ActorSimulationFidelityTransition>
+        live_ai_promotion_result =
+            oros::bootstrap::
+                apply_live_ai_actor_simulation_focus(
+                    world,
+                    live_ai_actor_demo,
+                    live_ai_focus_policy_result.
+                        value(),
+                    live_ai_focus_sources);
+
+    if (
+        !live_ai_promotion_result.has_value() ||
+        live_ai_promotion_result.value() !=
+            oros::ai::
+                ActorSimulationFidelityTransition::
+                    promotion_to_deep_local)
+    {
+        if (!live_ai_promotion_result.has_value())
+        {
+            const Error& error =
+                live_ai_promotion_result.error();
+
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Live AI actor deterministic "
+                "promotion failed: [" +
+                    std::string{
+                        to_string(error.code)} +
+                    "] " +
+                    error.message);
+
+            std::cerr
+                << "OROS live AI actor promotion "
+                << "failed: ["
+                << to_string(error.code)
+                << "] "
+                << error.message
+                << '\n';
+        }
+        else
+        {
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Live AI actor focus decision did "
+                "not produce the required "
+                "statistical-distant to deep-local "
+                "promotion.");
+
+            std::cerr
+                << "OROS live AI actor promotion "
+                << "transition contract failed.\n";
+        }
+
+        shutdown_logging();
+        return 1;
+    }
+
+    const Result<
+        oros::ai::ActorSimulationFidelity>
+        live_ai_promoted_fidelity =
+            live_ai_actor_demo.
+                fidelity_registry.
+                fidelity(
+                    live_ai_actor_entity);
+
+    const WorldPosition*
+        live_ai_promoted_position =
+            world.find_position(
+                live_ai_actor_entity);
+
+    const auto&
+        live_ai_promoted_intent =
+            live_ai_actor_demo.
+                schedule_execution.
+                persistent_intent();
+
+    const auto
+        live_ai_promoted_memberships =
+            live_ai_actor_demo.
+                faction_memberships.
+                memberships_in_canonical_order();
+
+    Result<oros::ai::NavigationSearchResult>
+        live_ai_post_promotion_navigation =
+            oros::ai::
+                search_navigation_route(
+                    navigation_demo.topology,
+                    navigation_overlay,
+                    navigation_demo.start_node,
+                    navigation_demo.
+                        complete_destination);
+
+    const oros::ai::NavigationRoute*
+        live_ai_post_promotion_route =
+            live_ai_post_promotion_navigation.
+                    has_value()
+                ? live_ai_post_promotion_navigation.
+                      value().
+                      route()
+                : nullptr;
+
+    bool
+        live_ai_post_promotion_route_valid =
+            false;
+
+    if (live_ai_post_promotion_route != nullptr)
+    {
+        const auto route_nodes =
+            live_ai_post_promotion_route->
+                nodes_in_traversal_order();
+
+        live_ai_post_promotion_route_valid =
+            !route_nodes.empty() &&
+            route_nodes.front() ==
+                navigation_demo.start_node;
+    }
+
+    const bool
+        live_ai_promotion_continuity_valid =
+            live_ai_actor_demo.actor ==
+                live_ai_actor_entity &&
+            live_ai_promoted_position !=
+                nullptr &&
+            *live_ai_promoted_position ==
+                live_ai_transfer_position &&
+            live_ai_promoted_fidelity.
+                has_value() &&
+            live_ai_promoted_fidelity.
+                    value() ==
+                oros::ai::
+                    ActorSimulationFidelity::
+                        deep_local &&
+            live_ai_promoted_intent.
+                has_value() &&
+            live_ai_promoted_intent->
+                    intent_namespace() ==
+                "oros" &&
+            live_ai_promoted_intent->
+                    intent_name() ==
+                "work" &&
+            live_ai_actor_demo.
+                schedule_execution.
+                is_interrupted() &&
+            live_ai_promoted_memberships.size() ==
+                1U &&
+            live_ai_promoted_memberships.front().
+                    actor() ==
+                live_ai_actor_entity &&
+            live_ai_promoted_memberships.front().
+                    faction().
+                    faction_namespace() ==
+                "oros" &&
+            live_ai_promoted_memberships.front().
+                    faction().
+                    faction_name() ==
+                "citizens" &&
+            live_ai_post_promotion_navigation.
+                    has_value() &&
+            live_ai_post_promotion_navigation.
+                    value().kind() ==
+                oros::ai::
+                    NavigationSearchResultKind::
+                        complete &&
+            live_ai_post_promotion_route_valid;
+
+    if (!live_ai_promotion_continuity_valid)
+    {
+        if (
+            !live_ai_post_promotion_navigation.
+                has_value())
+        {
+            const Error& error =
+                live_ai_post_promotion_navigation.
+                    error();
+
+            write_log(
+                LogLevel::critical,
+                "ai",
+                "Fresh post-promotion navigation "
+                "query failed: [" +
+                    std::string{
+                        to_string(error.code)} +
+                    "] " +
+                    error.message);
+        }
+
+        write_log(
+            LogLevel::critical,
+            "ai",
+            "Live AI actor promotion did not "
+            "preserve meaningful actor continuity "
+            "and reacquire derived navigation.");
+
+        std::cerr
+            << "OROS live AI actor promotion "
+            << "continuity contract failed.\n";
+
+        shutdown_logging();
+        return 1;
+    }
+
+    write_log(
+        LogLevel::info,
+        "ai",
+        "Live AI actor completed deterministic "
+        "deep-local -> statistical-distant -> "
+        "deep-local fidelity round trip while "
+        "preserving identity, World position, "
+        "persistent interrupted intent, and faction "
+        "membership; navigation was freshly "
+        "reacquired after promotion.");
+
+    // OROS-009 multi-actor bootstrap. The first NPC has completed
+    // its fidelity round trip above. Compose a second World-owned
+    // NPC at the authored navigation anchor with an opposite facing
+    // direction, demonstrating independent perception of the player.
+    auto second_live_ai_result =
+        oros::bootstrap::create_live_ai_actor_demo(
+            world, navigation_demo);
+
+    if (!second_live_ai_result.has_value())
+    {
+        const Error& error = second_live_ai_result.error();
+        write_log(
+            LogLevel::critical, "ai",
+            "Second live NPC composition failed: " + error.message);
+        std::cerr << "OROS second NPC creation failed: "
+                  << error.message << '\n';
+        shutdown_logging();
+        return 1;
+    }
+
+    oros::bootstrap::LiveAiActorDemo second_live_ai_actor_demo{
+        std::move(second_live_ai_result.value())
+    };
+
+    const auto opposite_forward =
+        oros::ai::ActorVisionDirection::create(
+            WorldDisplacement{-1.0, 0.0, 0.0});
+
+    if (
+        !opposite_forward.has_value() ||
+        !second_live_ai_actor_demo.vision_state.has_value() ||
+        !second_live_ai_actor_demo.vision_state->face(
+            opposite_forward.value()).has_value())
+    {
+        write_log(
+            LogLevel::critical, "ai",
+            "Second NPC requires a valid opposite vision direction.");
+        std::cerr << "OROS second NPC facing setup failed.\n";
+        shutdown_logging();
+        return 1;
+    }
+
+    const std::array<oros::bootstrap::LiveAiActorDemo*, 2>
+        live_ai_perception_actors{
+            &live_ai_actor_demo,
+            &second_live_ai_actor_demo
+        };
+
+    const std::array<EntityId, 1> live_ai_perception_targets{
+        player_entity
+    };
+
+    write_log(
+        LogLevel::info,
+        "ai",
+        "Two World-owned NPCs composed for independent, "
+        "actor-owned fixed-tick vision.");
 
     const WorldPosition* initial_player_position =
         world.find_position(
@@ -655,6 +1624,29 @@ int main()
                             << '\n';
 
                         std::cout
+                            << "Navigation supplied cells: "
+                            << navigation_demo.
+                                topology.
+                                size()
+                            << '\n';
+
+                        std::cout
+                            << "Navigation complete proof: "
+                            << "PASS\n";
+
+                        std::cout
+                            << "Navigation partial proof: "
+                            << "PASS\n";
+
+                        std::cout
+                            << "Live AI actor composition: "
+                            << "PASS\n";
+
+                        std::cout
+                            << "Live AI actor fidelity round trip: "
+                            << "PASS\n";
+
+                        std::cout
                             << "Renderer: Direct3D 12\n";
 
                         std::cout
@@ -702,6 +1694,10 @@ int main()
                             << "Close the window or press "
                             << "Escape to exit.\n";
 
+                        std::cout
+                            << "WASD: move with camera; "
+                            << "Left/Right arrows: turn view.\n";
+
                         const auto startup_microseconds =
                             std::chrono::duration_cast<
                                 std::chrono::microseconds>(
@@ -716,12 +1712,25 @@ int main()
                                     startup_microseconds) +
                                 " microseconds.");
 
+                        // Camera yaw is advanced on fixed simulation ticks.
+                        double debug_camera_yaw = 0.0;
+
                         const ClearColor first_light_color{
                             0.015F,
                             0.075F,
                             0.140F,
                             1.0F
                         };
+
+                        // OROS-009 fixed-tick perception now uses
+                        // validated actor-owned vision settings.
+
+                        std::array<
+                            oros::ai::ActorVisualPerceptionState,
+                            2> previous_npc_vision_states{
+                                oros::ai::ActorVisualPerceptionState::invalid,
+                                oros::ai::ActorVisualPerceptionState::invalid
+                            };
 
                         const auto request_runtime_stop =
                             [&runtime, &exit_code](
@@ -823,16 +1832,15 @@ int main()
                                 movement_z -= 1.0;
                             }
 
-                            const oros::physical_world::
-                                WorldFirstPersonControllerCommand
-                                movement_command{
-                                    oros::physics::
-                                        PhysicsVector3{
-                                            movement_x,
-                                            0.0,
-                                            movement_z
-                                        }
-                                };
+                            double turn_direction = 0.0;
+                            if (input.key_down(Key::right))
+                            {
+                                turn_direction += 1.0;
+                            }
+                            if (input.key_down(Key::left))
+                            {
+                                turn_direction -= 1.0;
+                            }
 
                             Result<RuntimeFrame> frame_result =
                                 runtime.begin_frame(
@@ -900,6 +1908,37 @@ int main()
                                         simulation_update_count;
                                 ++simulation_update_index)
                             {
+                                // Turn and move in World space based
+                                // on the camera's fixed-tick orientation.
+                                constexpr double pi =
+                                    3.14159265358979323846;
+                                constexpr double turn_speed = 1.5;
+                                const double seconds =
+                                    std::chrono::duration<double>(
+                                        simulation_step).count();
+                                debug_camera_yaw = std::remainder(
+                                    debug_camera_yaw +
+                                        turn_direction * turn_speed *
+                                            seconds,
+                                    2.0 * pi);
+
+                                const double yaw_sine =
+                                    std::sin(debug_camera_yaw);
+                                const double yaw_cosine =
+                                    std::cos(debug_camera_yaw);
+
+                                const oros::physical_world::
+                                    WorldFirstPersonControllerCommand
+                                    movement_command{
+                                        oros::physics::PhysicsVector3{
+                                            movement_x * yaw_cosine +
+                                                movement_z * yaw_sine,
+                                            0.0,
+                                            -movement_x * yaw_sine +
+                                                movement_z * yaw_cosine
+                                        }
+                                    };
+
                                 const Status
                                     live_player_step_status =
                                         oros::bootstrap::
@@ -950,7 +1989,200 @@ int main()
                                     }
 
                                     break;
-                                }                            }
+                                }
+
+                                // OROS-009 automatic NPC perception.
+                                // Simulation time comes from completed
+                                // fixed ticks, never from a wall clock.
+                                const std::uint64_t tick_ordinal =
+                                    frame_schedule.
+                                        first_simulation_tick_index +
+                                    static_cast<std::uint64_t>(
+                                        simulation_update_index) +
+                                    1ULL;
+
+                                const bool roster_ready =
+                                    live_ai_actor_demo.
+                                        vision_state.has_value() &&
+                                    second_live_ai_actor_demo.
+                                        vision_state.has_value();
+
+                                const auto step_ns =
+                                    simulation_step.count();
+
+                                const bool time_safe =
+                                    step_ns > 0 &&
+                                    tick_ordinal <=
+                                        (std::numeric_limits<
+                                            std::uint64_t>::max)() /
+                                        static_cast<std::uint64_t>(
+                                            step_ns);
+
+                                if (!roster_ready || !time_safe)
+                                {
+                                    write_log(
+                                        LogLevel::critical,
+                                        "ai",
+                                        "NPC vision settings or "
+                                        "deterministic tick time invalid.");
+
+                                    std::cerr
+                                        << "OROS NPC perception setup "
+                                        << "failed.\n";
+
+                                    exit_code = 1;
+                                    simulation_frame_failed = true;
+
+                                    if (!request_runtime_stop(
+                                            "NPC perception setup failure"))
+                                    {
+                                        simulation_stop_failed = true;
+                                    }
+
+                                    break;
+                                }
+
+                                const std::uint64_t elapsed_ns =
+                                    tick_ordinal *
+                                    static_cast<std::uint64_t>(
+                                        step_ns);
+
+                                const WorldTime observation_time =
+                                    WorldTime::
+                                        from_microseconds_since_epoch(
+                                            elapsed_ns / 1'000ULL);
+
+                                const auto perception_result =
+                                    oros::bootstrap::
+                                        observe_live_ai_actor_group(
+                                            world,
+                                            physical_world_demo.registry,
+                                            live_ai_perception_actors,
+                                            live_ai_perception_targets,
+                                            observation_time,
+                                            live_ai_perception_actors.size() *
+                                                live_ai_perception_targets.size());
+
+                                if (!perception_result.has_value())
+                                {
+                                    const Error& error =
+                                        perception_result.error();
+
+                                    write_log(
+                                        LogLevel::critical,
+                                        "ai",
+                                        "NPC fixed-tick perception "
+                                        "failed: [" +
+                                            std::string{
+                                                to_string(error.code)} +
+                                            "] " +
+                                            error.message);
+
+                                    std::cerr
+                                        << "OROS NPC perception failed: ["
+                                        << to_string(error.code)
+                                        << "] "
+                                        << error.message
+                                        << '\n';
+
+                                    exit_code = 1;
+                                    simulation_frame_failed = true;
+
+                                    if (!request_runtime_stop(
+                                            "NPC perception failure"))
+                                    {
+                                        simulation_stop_failed = true;
+                                    }
+
+                                    break;
+                                }
+
+                                // Log only transitions for each actor,
+                                // never a message on every fixed tick.
+                                for (const auto& observation :
+                                    perception_result.value().observations)
+                                {
+                                    const std::size_t observer_index =
+                                        observation.observer ==
+                                            live_ai_actor_demo.actor
+                                            ? 0U : 1U;
+
+                                    const auto current_vision_state =
+                                        observation.perception;
+
+                                    if (
+                                        current_vision_state ==
+                                        previous_npc_vision_states[
+                                            observer_index])
+                                    {
+                                        continue;
+                                    }
+
+                                    previous_npc_vision_states[
+                                        observer_index] =
+                                            current_vision_state;
+
+                                    std::string_view state_text{
+                                        "unknown"
+                                    };
+
+                                    switch (current_vision_state)
+                                    {
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::visible:
+                                        state_text = "visible";
+                                        break;
+
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::occluded:
+                                        state_text = "occluded";
+                                        break;
+
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::out_of_range:
+                                        state_text = "out_of_range";
+                                        break;
+
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::
+                                            outside_field_of_view:
+                                        state_text = "outside_fov";
+                                        break;
+
+                                    case oros::ai::
+                                        ActorVisualPerceptionState::unavailable:
+                                        state_text = "unavailable";
+                                        break;
+
+                                    default:
+                                        state_text = "invalid";
+                                        break;
+                                    }
+
+                                    const auto* observed_actor =
+                                        live_ai_perception_actors[
+                                            observer_index];
+
+                                    write_log(
+                                        LogLevel::info,
+                                        "ai",
+                                        "Live NPC #" +
+                                            std::to_string(
+                                                observer_index + 1U) +
+                                            " perception of player: " +
+                                            std::string{state_text});
+
+                                    std::cout
+                                        << "OROS-009 NPC "
+                                        << observer_index + 1U
+                                        << " perception: "
+                                        << state_text
+                                        << ", remembered targets: "
+                                        << observed_actor->
+                                            visual_memory.size()
+                                        << '\n';
+                                }
+                            }
 
                             if (simulation_stop_failed)
                             {
@@ -1025,9 +2257,61 @@ int main()
                                 continue;
                             }
 
+                            // Follow the World-owned player rather
+                            // than a separate graphics-only position.
+                            const WorldPosition* visual_player =
+                                world.find_position(player_entity);
+
+                            if (visual_player == nullptr)
+                            {
+                                write_log(
+                                    LogLevel::critical,
+                                    "rendering",
+                                    "Missing World-owned player render anchor.");
+                                exit_code = 1;
+                                simulation_frame_failed = true;
+                                if (!request_runtime_stop(
+                                        "missing visual player position"))
+                                {
+                                    simulation_stop_failed = true;
+                                }
+                                continue;
+                            }
+
+                            const std::array<
+                                const WorldPosition*, 2U>
+                                visual_npcs{{
+                                    world.find_position(
+                                        live_ai_perception_actors[0]->actor),
+                                    world.find_position(
+                                        live_ai_perception_actors[1]->actor)
+                                }};
+
+                            const auto visual_frame =
+                                oros::bootstrap::build_live_debug_world_frame(
+                                    *visual_player,
+                                    visual_npcs,
+                                    static_cast<float>(debug_camera_yaw));
+                            if (!visual_frame.has_value())
+                            {
+                                write_log(
+                                    LogLevel::critical, "rendering",
+                                    "Visual frame composition failed: " +
+                                        visual_frame.error().message);
+                                exit_code = 1;
+                                simulation_frame_failed = true;
+                                if (!request_runtime_stop(
+                                        "invalid World visual scene"))
+                                {
+                                    simulation_stop_failed = true;
+                                }
+                                continue;
+                            }
+
                             const Status frame_status =
-                                renderer.draw_frame(
-                                    first_light_color);
+                                renderer.draw_world_frame(
+                                    first_light_color,
+                                    visual_frame.value().scene());
 
                             if (!frame_status.has_value())
                             {

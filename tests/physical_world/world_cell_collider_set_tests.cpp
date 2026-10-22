@@ -280,8 +280,8 @@ int main()
             sphere_id,
             sphere_shape_result.value(),
             PhysicsVector3{
-                511.0,
-                -512.0,
+                500.0,
+                -500.0,
                 0.0
             });
 
@@ -661,8 +661,8 @@ int main()
             sphere_shape_result.value(),
             PhysicsVector3{
                 -512.0,
-                -512.0,
-                -512.0
+                0.0,
+                0.0
             });
 
     check(
@@ -685,28 +685,163 @@ int main()
                 value()
         };
 
-    const auto negative_boundary_set_result =
+    check_failure(
+        state,
         WorldCellColliderSet::create(
             cell_key,
             std::span<
                 const ColliderGeometry>{
                     negative_boundary_colliders
+                }),
+        ErrorCode::invalid_argument,
+        "Creation rejects collider bounds crossing negative cell boundary");
+
+    const auto positive_crossing_geometry_result =
+        ColliderGeometry::create(
+            ColliderId{
+                EntityId{
+                    world_namespace,
+                    53ULL
+                },
+                1U
+            },
+            sphere_shape_result.value(),
+            PhysicsVector3{
+                511.0,
+                0.0,
+                0.0
+            });
+
+    check(
+        state,
+        positive_crossing_geometry_result.
+            has_value(),
+        "Positive-crossing geometry fixture is created");
+
+    if (!positive_crossing_geometry_result.
+        has_value())
+    {
+        return finish(state);
+    }
+
+    const std::array<
+        ColliderGeometry,
+        1U>
+        positive_crossing_colliders{
+            positive_crossing_geometry_result.
+                value()
+        };
+
+    check_failure(
+        state,
+        WorldCellColliderSet::create(
+            cell_key,
+            std::span<
+                const ColliderGeometry>{
+                    positive_crossing_colliders
+                }),
+        ErrorCode::invalid_argument,
+        "Creation rejects canonical-center collider crossing positive cell boundary");
+
+    const auto exact_negative_bound_geometry_result =
+        ColliderGeometry::create(
+            ColliderId{
+                EntityId{
+                    world_namespace,
+                    54ULL
+                },
+                1U
+            },
+            sphere_shape_result.value(),
+            PhysicsVector3{
+                -509.5,
+                0.0,
+                0.0
+            });
+
+    check(
+        state,
+        exact_negative_bound_geometry_result.
+            has_value(),
+        "Exact-negative-bound geometry fixture is created");
+
+    if (!exact_negative_bound_geometry_result.
+        has_value())
+    {
+        return finish(state);
+    }
+
+    const std::array<
+        ColliderGeometry,
+        1U>
+        exact_negative_bound_colliders{
+            exact_negative_bound_geometry_result.
+                value()
+        };
+
+    const auto exact_negative_bound_set_result =
+        WorldCellColliderSet::create(
+            cell_key,
+            std::span<
+                const ColliderGeometry>{
+                    exact_negative_bound_colliders
                 });
 
     check(
         state,
-        negative_boundary_set_result.
-            has_value(),
-        "Negative half extent is a valid local center");
+        exact_negative_bound_set_result.
+            has_value() &&
+            exact_negative_bound_set_result.
+                value().
+                is_valid(),
+        "Collider bounds may touch inclusive negative cell boundary");
+
+    const auto exact_positive_bound_geometry_result =
+        ColliderGeometry::create(
+            ColliderId{
+                EntityId{
+                    world_namespace,
+                    55ULL
+                },
+                1U
+            },
+            sphere_shape_result.value(),
+            PhysicsVector3{
+                509.5,
+                0.0,
+                0.0
+            });
 
     check(
         state,
-        negative_boundary_set_result.
-            has_value() &&
-            negative_boundary_set_result.
-                value().
-                is_valid(),
-        "Negative-boundary collider set is valid");
+        exact_positive_bound_geometry_result.
+            has_value(),
+        "Exact-positive-bound geometry fixture is created");
+
+    if (!exact_positive_bound_geometry_result.
+        has_value())
+    {
+        return finish(state);
+    }
+
+    const std::array<
+        ColliderGeometry,
+        1U>
+        exact_positive_bound_colliders{
+            exact_positive_bound_geometry_result.
+                value()
+        };
+
+    check_failure(
+        state,
+        WorldCellColliderSet::create(
+            cell_key,
+            std::span<
+                const ColliderGeometry>{
+                    exact_positive_bound_colliders
+                }),
+        ErrorCode::invalid_argument,
+        "Collider bounds cannot touch exclusive positive cell boundary");
 
     const auto other_cell_set_result =
         WorldCellColliderSet::create(

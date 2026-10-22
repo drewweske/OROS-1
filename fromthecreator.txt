@@ -285,7 +285,189 @@ OROS-007 Streaming: World cells, asynchronous I/O, persistence.
 
 OROS-008 Physical World: Collision and first-person controller.
 
-OROS-009 Living World: Navigation, perception, schedules, factions.
+POST 008:
+
+OROS-009 — Living World: Autonomous Society
+
+Establish engine/ai as a real engine layer, not gameplay scripts.
+Hierarchical navigation: world-cell-aware navigation topology, deterministic node/portal identities, cross-cell routes, dynamic obstacle overlays, path corridors, partial-route continuation when destination cells are nonresident.
+Perception: vision cones, range/FOV, deterministic line-of-sight using Physical World, hearing/stimulus propagation, remembered observations, confidence/age of perception facts.
+Schedules: world-time-driven activity schedules with deterministic interruption/resumption and persistent intent.
+Factions: stable faction identity, membership, relationship matrices, hostility/alliance/trust/reputation primitives.
+Simulation fidelity: explicit actor tiers—deep local actors versus statistical distant actors—with deterministic promotion/demotion and state transfer. This is one of the most important 2045 architectural concepts.
+Provide hooks for later utility AI/planning/memory/crowds, but do not force those into the OROS-009 closure requirement.
+Acceptance target: actors can perceive, navigate, follow schedules, belong to factions, stream out/in, and retain meaningful state without tying AI to rendering or raw input.
+
+OROS-010 — RPG Slice: Systemic Gameplay
+
+Build the explicit command/event gameplay layer required by the Constitution.
+Interaction/query system: usable objects, contextual actions, ownership and permissions.
+Persistent items with stable identity and provenance—an item remains the same object when equipped, dropped, stolen, traded, stored, streamed out, or saved.
+Inventory, containers, equipment, stacks, durability and transactional transfers.
+Crafting and resource transformation with lineage from source assets/resources to produced items.
+Damage, health, armor, resistances, melee/projectile primitives and faction-aware aggression.
+Survival simulation: hunger, thirst, temperature, fatigue, injury/status effects.
+Skills/progression built from explicit attributes rather than hidden global state.
+Quest/objective state machines that reference stable World identities rather than fragile pointers.
+Dialogue/conversation state and schedule/faction integration.
+First true systemic vertical slice: NPC sees player → evaluates hostility → navigates → engages → item changes ownership → quest/world state remembers the result.
+
+OROS-011 — Forge: Proprietary World Editor
+
+Create the dedicated apps/editor executable.
+World-cell browser and streaming inspector.
+Entity/component inspector with stable-ID navigation and cross-reference visualization.
+Asset browser exposing source → importer → cooked artifact → runtime resource lineage.
+Navigation visualization, perception cones, schedules, faction graphs and AI state inspection.
+Physical World collision/contact/grounding visualization.
+Transactional editor commands with undo/redo rather than arbitrary direct mutation.
+Live runtime attachment and read-only remote inspection.
+Profiling timelines and subsystem telemetry.
+Save/persistence diagnostic tools and schema viewers.
+Commandlets/headless tools for import, cook, validation and world processing.
+AI-native tooling: structured machine-readable diagnostics so future AI agents operate from factual engine state rather than guessing. This is explicitly part of the Constitution.
+Every engine subsystem added after Forge must expose debug/inspection data to Forge.
+
+OROS-012 — Frontier: GPU-Driven Rendering & Destructible Reality
+
+Preserve the Constitution's existing Frontier milestone: virtual geometry, advanced lighting, destruction and neural acceleration.
+Evolve the current D3D12 renderer into a proper RHI-oriented architecture.
+Render graph with explicit resource lifetime, transitions, queues and dependencies.
+GPU scene representation using stable World identities and compact render handles.
+Bindless descriptors/resources.
+Meshlet/cluster-based geometry processing and hierarchical GPU culling.
+Virtualized geometry plus virtual textures and streaming-aware HLOD.
+GPU-generated indirect workloads; D3D12 Work Graphs only on hardware that exposes them. The Constitution already names Work Graphs as a later capability.
+Physically based material architecture.
+Capability-scaled shadows, GI, reflections and ray tracing rather than one mandatory expensive path.
+Destruction state connected to World/Persistence so destroyed geometry is a simulation fact, not a temporary VFX trick.
+Neural inference may accelerate reconstruction, denoising or secondary destruction effects, but never become authoritative physics.
+Rendering must remain an observer of authoritative World/simulation state.
+
+OROS-013 — Pulse: Parallel Runtime Kernel
+
+Build the task/runtime architecture that the original 2045 paper wanted, but correctly.
+Tested OROS task system with explicit dependencies, cancellation, priorities and ownership.
+Worker pool with work stealing where measurement proves useful.
+Deterministic simulation barriers separating parallel computation from authoritative state commit.
+Service/dependency graph for subsystem startup/shutdown.
+Event/command channels with bounded queues and measurable latency.
+Tick-addressed input-command infrastructure. This is where jump, mouse-look and other edge/delta gameplay input can finally become architecturally safe.
+CPU capability detection with portable scalar baseline plus optional SSE/AVX2/AVX-512 implementations.
+std::pmr memory resources and frame/task scratch allocation introduced only where profiling demonstrates value.
+Telemetry for task latency, queue pressure, occupancy, contention and memory behavior.
+Adopt C++26 execution facilities only when the compiler implementation is demonstrably production-ready.
+
+OROS-014 — Continuum: Total Persistence & Deterministic History
+
+Expand current cell persistence into true Persistent Continuity.
+Versioned component/world schemas and explicit migrations.
+Incremental snapshots plus journals rather than monolithic save blobs.
+Crash-safe checkpoint publication.
+Persistent world-event identities.
+Deterministic replay streams keyed to simulation ticks.
+Save branching/checkpoints and replay scrubbing.
+Long-lived entity history and provenance.
+Streaming-safe partial save/load without requiring the entire world resident.
+Migration tests that load old schemas into current runtime state.
+This milestone turns the Constitution's example—tree → wood → weapon → stolen → sold → streamed → reloaded—into an enforceable engine capability.
+
+OROS-015 — Nexus: Distributed Persistent World
+
+apps/server dedicated authoritative server.
+Network identity uses the same stable IDs as World/Persistence—never a second incompatible identity universe.
+Tick-addressed command replication.
+Snapshot/delta replication.
+World-cell-based interest management.
+Client prediction and authoritative reconciliation.
+Join-in-progress from persisted/current World state.
+Server-side lag compensation where appropriate.
+Entity dormancy and distant-state aggregation.
+Localized network coordinates: transmit compact cell-relative values rather than blindly sending enormous global doubles, matching the useful concept from the 2045 paper.
+Bandwidth/CPU budgets become first-class measurable quantities.
+Replay and network streams should share as much serialization/state-transition machinery as safely possible.
+
+OROS-016 — Kinetics: Advanced Physical Motion
+
+Expand Physical World from collision/character traversal into authoritative dynamics.
+Rigid bodies, mass/inertia and deterministic integration.
+Contact manifolds and iterative constraint solver.
+Sleeping/island management.
+Continuous collision detection.
+Joints/constraints.
+Moving platforms and physically interactive characters.
+Full controller abilities: jump, crouch, sprint, climb, mantle, swim and knockback through the tick-addressed command architecture.
+Vehicle foundation: wheeled and constrained bodies, suspension, traction and damage.
+Ragdolls integrated as physical state rather than animation-only artifacts.
+Destruction interfaces consume the same rigid-body/contact model.
+Deterministic mathematical physics remains authoritative; neural models are accelerators only.
+
+OROS-017 — Presence: Animation, Camera, Audio & Interface
+
+Presentation finally becomes a fully developed layer while remaining non-authoritative.
+Skeletal animation and compressed animation streaming.
+Animation/pose graph.
+Motion matching and pose search.
+IK, foot placement, look-at and procedural adjustment informed by Physical World.
+Root motion expressed as a request into simulation rather than directly moving authoritative entities.
+First-person and third-person camera architecture with camera-relative command generation.
+Spatial audio, occlusion, propagation zones, ambience and dynamic mixing.
+UI framework, HUD, menus and accessibility.
+Dialogue presentation, subtitles and localization.
+Cinematic sequencing.
+Controller vibration/haptics.
+Presentation can interpolate/extrapolate simulation state, but can never become the owner of gameplay truth.
+
+OROS-018 — Biosphere: Planetary-Scale Emergent Simulation
+
+Water, fire, weather and ecology—the remaining simulation categories named by the Constitution.
+Weather cells/fronts, temperature, precipitation and wind.
+Water bodies, buoyancy and scalable fluid approximations.
+Fire ignition/spread, fuels, temperature and environmental consequences.
+Vegetation growth/depletion/regeneration.
+Wildlife populations, migration and food-chain statistics.
+Settlement/resource/economic simulation hooks.
+Deep simulation near active players; aggregated differential/statistical simulation for distant cells.
+State transitions remain deterministic at authoritative boundaries.
+Neural surrogates may accelerate clouds, fluids, fracture prediction, denoising or population estimation—but outputs are validated/bounded by deterministic systems.
+This is where OROS begins behaving like a world that continues to exist, rather than a collection of loaded levels.
+
+OROS-019 — Fabric: Modding & Extensibility
+
+Public, versioned mod-facing schemas that are explicitly distinct from private engine internals.
+Package manifests, dependency/version resolution and load ordering.
+Capability/permission-based sandbox.
+Deterministic scripting interface or sandboxed bytecode/runtime chosen only after benchmarking and security evaluation.
+Stable public commands/events rather than exposing raw pointers/components.
+Asset and world extension packages.
+Save-game compatibility metadata.
+Mod conflict diagnostics.
+Editor integration and hot reload where safe.
+Signed/trusted package path for multiplayer servers.
+Mod migrations and compatibility policy.
+The Constitution explicitly requires public interfaces to remain isolated from engine internals.
+
+OROS-020 — Horizon: Engine Convergence & 2045 Platform
+
+Vulkan 1.4 becomes the second rendering backend after D3D12 is mature, exactly as the Constitution anticipates.
+Formal hardware capability database governing rendering, compute, SIMD and neural acceleration paths.
+Headless/server configurations and platform-independent core builds.
+Full benchmark suite with budgets for frame, simulation, streaming, memory, AI, networking and persistence.
+Deterministic replay validation across builds.
+Fuzzing of serializers/parsers and corrupted-save recovery.
+Sanitizers, static analysis, crash dumps and postmortem diagnostics.
+Long-duration soak testing of persistence/streaming/AI.
+Asset/schema backward-compatibility tests.
+Large-world endurance tests spanning enormous cell coordinates.
+Integrated editor, game, server, tools and cooked-content packaging.
+Capability-scaled presets instead of hard assumptions about one GPU/CPU generation.
+C++26 maturation gate: standardized contracts, reflection, modules and execution features can replace OROS compatibility machinery only when compiler/toolchain support is proven—not because the calendar says “C++26.”
+Final requirement: the engine can run a persistent systemic sandbox for extended periods while entities move through AI, physics, streaming, saves, replay, networking, editor tooling and mod interfaces without losing identity or meaning.
+
+
+
+OLD OUTDATED MILESTONES
+[OROS-009 Living World: Navigation, perception, schedules, factions.
 
 OROS-010 RPG Slice: Interaction, inventory, combat, survival, quests.
 

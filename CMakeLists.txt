@@ -181,6 +181,7 @@ target_sources(
     oros_rendering
     PRIVATE
         engine/rendering/src/d3d12/renderer.cpp
+        engine/rendering/src/debug_world_geometry.cpp
 )
 
 target_include_directories(
@@ -195,6 +196,7 @@ target_link_libraries(
         oros_foundation
     PRIVATE
         d3d12
+        d3dcompiler
         dxgi
         user32
 )
@@ -301,6 +303,7 @@ target_sources(
         engine/physics/src/capsule_capsule_narrow_phase.cpp
         engine/physics/src/collider_geometry.cpp
         engine/physics/src/collider_id.cpp
+        engine/physics/src/collider_segment_query.cpp
         engine/physics/src/collision_contact.cpp
         engine/physics/src/collision_shape.cpp
         engine/physics/src/collision_shape_bounds.cpp
@@ -447,6 +450,7 @@ target_sources(
         engine/physical_world/src/world_cell_collider_payload.cpp
         engine/physical_world/src/world_cell_collider_registry.cpp
         engine/physical_world/src/world_cell_collider_set.cpp
+        engine/physical_world/src/world_segment_query.cpp
 )
 
 target_include_directories(
@@ -474,6 +478,79 @@ oros_enable_warnings(
     oros_physical_world
 )
 
+add_library(
+    oros_ai
+    STATIC
+)
+
+target_sources(
+    oros_ai
+    PRIVATE
+        engine/ai/src/actor_activity_intent_key.cpp
+        engine/ai/src/actor_faction_membership.cpp
+        engine/ai/src/actor_faction_membership_set.cpp
+        engine/ai/src/actor_faction_reputation.cpp
+        engine/ai/src/actor_faction_reputation_set.cpp
+        engine/ai/src/faction_key.cpp
+        engine/ai/src/faction_relationship.cpp
+        engine/ai/src/faction_relationship_matrix.cpp
+        engine/ai/src/faction_trust.cpp
+        engine/ai/src/faction_trust_matrix.cpp
+        engine/ai/src/navigation_node_record.cpp
+        engine/ai/src/navigation_portal_record.cpp
+        engine/ai/src/navigation_cell_topology.cpp
+        engine/ai/src/navigation_topology.cpp
+        engine/ai/src/navigation_route.cpp
+        engine/ai/src/navigation_traversal.cpp
+        engine/ai/src/navigation_obstacle_overlay.cpp
+        engine/ai/src/navigation_effective_traversal.cpp
+        engine/ai/src/navigation_search.cpp
+        engine/ai/src/actor_schedule.cpp
+        engine/ai/src/actor_schedule_execution_state.cpp
+        engine/ai/src/actor_scheduled_activity.cpp
+        engine/ai/src/actor_schedule_window.cpp
+        engine/ai/src/actor_simulation_fidelity_registry.cpp
+        engine/ai/src/actor_simulation_fidelity_state.cpp
+        engine/ai/src/actor_simulation_position_snapshot_set.cpp
+        engine/ai/src/actor_simulation_focus_decision.cpp
+        engine/ai/src/actor_simulation_focus_decision_set.cpp
+        engine/ai/src/actor_simulation_focus_decision_application.cpp
+        engine/ai/src/actor_simulation_focus_decision_set_application.cpp
+        engine/ai/src/actor_simulation_focus_policy.cpp
+        engine/ai/src/actor_simulation_focus_source_registry.cpp
+        engine/ai/src/actor_vision_state_registry.cpp
+        engine/ai/src/actor_vision_profile.cpp
+        engine/ai/src/actor_visual_observation.cpp
+        engine/ai/src/actor_visual_observation_memory.cpp
+        engine/ai/src/actor_visual_perception.cpp
+        engine/ai/src/actor_visual_perception_memory_update.cpp
+        engine/ai/src/actor_visual_perception_tick.cpp
+)
+
+target_include_directories(
+    oros_ai
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/ai/include"
+)
+
+target_link_libraries(
+    oros_ai
+    PUBLIC
+        oros_foundation
+        oros_physical_world
+        oros_world
+)
+
+target_compile_features(
+    oros_ai
+    PUBLIC
+        cxx_std_23
+)
+
+oros_enable_warnings(
+    oros_ai
+)
+
 add_executable(
     oros_bootstrap
 )
@@ -481,14 +558,20 @@ add_executable(
 target_sources(
     oros_bootstrap
     PRIVATE
+        apps/bootstrap/live_ai_actor_demo.cpp
+        apps/bootstrap/live_ai_actor_lifecycle_demo.cpp
+        apps/bootstrap/live_ai_perception_group_demo.cpp
+        apps/bootstrap/live_debug_world_scene.cpp
         apps/bootstrap/live_player_demo.cpp
         apps/bootstrap/main.cpp
+        apps/bootstrap/navigation_demo.cpp
         apps/bootstrap/physical_world_demo.cpp
 )
 
 target_link_libraries(
     oros_bootstrap
     PRIVATE
+        oros_ai
         oros_foundation
         oros_physical_world
         oros_physics
@@ -591,6 +674,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_rendering_debug_world_geometry_tests
+        oros.rendering.debug_world_geometry
+        tests/rendering/debug_world_geometry_tests.cpp
+        oros_rendering
+    )
+
+    oros_add_test_target(
         oros_runtime_fixed_step_scheduler_tests
         oros.runtime.fixed_step_scheduler
         tests/runtime/fixed_step_scheduler_tests.cpp
@@ -626,6 +716,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_world_time_tests
+        oros.world.time
+        tests/world/world_time_tests.cpp
+        oros_world
+    )
+
+    oros_add_test_target(
         oros_world_tests
         oros.world
         tests/world/world_tests.cpp
@@ -650,6 +747,13 @@ if(BUILD_TESTING)
         oros_physics_collider_geometry_tests
         oros.physics.collider_geometry
         tests/physics/collider_geometry_tests.cpp
+        oros_physics
+    )
+
+    oros_add_test_target(
+        oros_physics_collider_segment_query_tests
+        oros.physics.collider_segment_query
+        tests/physics/collider_segment_query_tests.cpp
         oros_physics
     )
 
@@ -1017,6 +1121,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_physical_world_world_segment_query_tests
+        oros.physical_world.world_segment_query
+        tests/physical_world/world_segment_query_tests.cpp
+        oros_physical_world
+    )
+
+    oros_add_test_target(
         oros_physical_world_world_capsule_contact_query_tests
         oros.physical_world.world_capsule_contact_query
         tests/physical_world/world_capsule_contact_query_tests.cpp
@@ -1084,5 +1195,418 @@ if(BUILD_TESTING)
         oros.physical_world.world_capsule_step_up
         tests/physical_world/world_capsule_step_up_tests.cpp
         oros_physical_world
+    )
+    oros_add_test_target(
+        oros_ai_actor_vision_profile_tests
+        oros.ai.actor_vision_profile
+        tests/ai/actor_vision_profile_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_vision_state_tests
+        oros.ai.actor_vision_state
+        tests/ai/actor_vision_state_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_vision_state_registry_tests
+        oros.ai.actor_vision_state_registry
+        tests/ai/actor_vision_state_registry_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_visual_observation_memory_tests
+        oros.ai.actor_visual_observation_memory
+        tests/ai/actor_visual_observation_memory_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_visual_perception_tests
+        oros.ai.actor_visual_perception
+        tests/ai/actor_visual_perception_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_visual_perception_memory_update_tests
+        oros.ai.actor_visual_perception_memory_update
+        tests/ai/actor_visual_perception_memory_update_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_visual_perception_tick_tests
+        oros.ai.actor_visual_perception_tick
+        tests/ai/actor_visual_perception_tick_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_fidelity_state_tests
+        oros.ai.actor_simulation_fidelity_state
+        tests/ai/actor_simulation_fidelity_state_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_fidelity_registry_tests
+        oros.ai.actor_simulation_fidelity_registry
+        tests/ai/actor_simulation_fidelity_registry_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_focus_policy_tests
+        oros.ai.actor_simulation_focus_policy
+        tests/ai/actor_simulation_focus_policy_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_focus_source_registry_tests
+        oros.ai.actor_simulation_focus_source_registry
+        tests/ai/actor_simulation_focus_source_registry_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_focus_decision_tests
+        oros.ai.actor_simulation_focus_decision
+        tests/ai/actor_simulation_focus_decision_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_focus_decision_application_tests
+        oros.ai.actor_simulation_focus_decision_application
+        tests/ai/actor_simulation_focus_decision_application_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_position_snapshot_set_tests
+        oros.ai.actor_simulation_position_snapshot_set
+        tests/ai/actor_simulation_position_snapshot_set_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_focus_decision_set_tests
+        oros.ai.actor_simulation_focus_decision_set
+        tests/ai/actor_simulation_focus_decision_set_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_simulation_focus_decision_set_application_tests
+        oros.ai.actor_simulation_focus_decision_set_application
+        tests/ai/actor_simulation_focus_decision_set_application_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_schedule_window_tests
+        oros.ai.actor_schedule_window
+        tests/ai/actor_schedule_window_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_activity_intent_key_tests
+        oros.ai.actor_activity_intent_key
+        tests/ai/actor_activity_intent_key_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_faction_key_tests
+        oros.ai.faction_key
+        tests/ai/faction_key_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_faction_relationship_tests
+        oros.ai.faction_relationship
+        tests/ai/faction_relationship_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_faction_relationship_matrix_tests
+        oros.ai.faction_relationship_matrix
+        tests/ai/faction_relationship_matrix_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_faction_trust_tests
+        oros.ai.faction_trust
+        tests/ai/faction_trust_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_faction_trust_matrix_tests
+        oros.ai.faction_trust_matrix
+        tests/ai/faction_trust_matrix_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_faction_membership_tests
+        oros.ai.actor_faction_membership
+        tests/ai/actor_faction_membership_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_faction_membership_set_tests
+        oros.ai.actor_faction_membership_set
+        tests/ai/actor_faction_membership_set_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_faction_reputation_tests
+        oros.ai.actor_faction_reputation
+        tests/ai/actor_faction_reputation_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_faction_reputation_set_tests
+        oros.ai.actor_faction_reputation_set
+        tests/ai/actor_faction_reputation_set_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_node_id_tests
+        oros.ai.navigation_node_id
+        tests/ai/navigation_node_id_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_portal_id_tests
+        oros.ai.navigation_portal_id
+        tests/ai/navigation_portal_id_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_node_record_tests
+        oros.ai.navigation_node_record
+        tests/ai/navigation_node_record_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_portal_record_tests
+        oros.ai.navigation_portal_record
+        tests/ai/navigation_portal_record_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_cell_topology_tests
+        oros.ai.navigation_cell_topology
+        tests/ai/navigation_cell_topology_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_topology_tests
+        oros.ai.navigation_topology
+        tests/ai/navigation_topology_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_route_tests
+        oros.ai.navigation_route
+        tests/ai/navigation_route_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_traversal_tests
+        oros.ai.navigation_traversal
+        tests/ai/navigation_traversal_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_obstacle_overlay_tests
+        oros.ai.navigation_obstacle_overlay
+        tests/ai/navigation_obstacle_overlay_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_effective_traversal_tests
+        oros.ai.navigation_effective_traversal
+        tests/ai/navigation_effective_traversal_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_navigation_search_tests
+        oros.ai.navigation_search
+        tests/ai/navigation_search_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_bootstrap_navigation_demo_tests
+        oros.bootstrap.navigation_demo
+        tests/bootstrap/navigation_demo_tests.cpp
+        oros_ai
+    )
+
+    target_sources(
+        oros_bootstrap_navigation_demo_tests
+        PRIVATE
+            apps/bootstrap/navigation_demo.cpp
+    )
+
+    target_include_directories(
+        oros_bootstrap_navigation_demo_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
+    )
+
+    oros_add_test_target(
+        oros_bootstrap_live_ai_actor_demo_tests
+        oros.bootstrap.live_ai_actor_demo
+        tests/bootstrap/live_ai_actor_demo_tests.cpp
+        oros_ai
+        oros_world
+    )
+
+    target_sources(
+        oros_bootstrap_live_ai_actor_demo_tests
+        PRIVATE
+            apps/bootstrap/live_ai_actor_demo.cpp
+            apps/bootstrap/navigation_demo.cpp
+    )
+
+    target_include_directories(
+        oros_bootstrap_live_ai_actor_demo_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
+    )
+
+    oros_add_test_target(
+        oros_bootstrap_live_debug_world_scene_tests
+        oros.bootstrap.live_debug_world_scene
+        tests/bootstrap/live_debug_world_scene_tests.cpp
+        oros_rendering
+        oros_world
+    )
+
+    target_sources(
+        oros_bootstrap_live_debug_world_scene_tests
+        PRIVATE
+            apps/bootstrap/live_debug_world_scene.cpp
+    )
+
+    target_include_directories(
+        oros_bootstrap_live_debug_world_scene_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
+    )
+
+    oros_add_test_target(
+        oros_bootstrap_outpost_collision_tests
+        oros.bootstrap.outpost_collision
+        tests/bootstrap/outpost_collision_tests.cpp
+        oros_ai
+        oros_physical_world
+        oros_physics
+        oros_streaming
+        oros_world
+    )
+
+    target_sources(
+        oros_bootstrap_outpost_collision_tests
+        PRIVATE
+            apps/bootstrap/physical_world_demo.cpp
+    )
+
+    target_include_directories(
+        oros_bootstrap_outpost_collision_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
+    )
+
+    oros_add_test_target(
+        oros_bootstrap_live_ai_actor_lifecycle_demo_tests
+        oros.bootstrap.live_ai_actor_lifecycle
+        tests/bootstrap/live_ai_actor_lifecycle_demo_tests.cpp
+        oros_ai
+        oros_world
+    )
+
+    target_sources(
+        oros_bootstrap_live_ai_actor_lifecycle_demo_tests
+        PRIVATE
+            apps/bootstrap/live_ai_actor_demo.cpp
+            apps/bootstrap/live_ai_actor_lifecycle_demo.cpp
+            apps/bootstrap/navigation_demo.cpp
+    )
+
+    target_include_directories(
+        oros_bootstrap_live_ai_actor_lifecycle_demo_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
+    )
+
+    oros_add_test_target(
+        oros_bootstrap_live_ai_perception_group_demo_tests
+        oros.bootstrap.live_ai_perception_group_demo
+        tests/bootstrap/live_ai_perception_group_demo_tests.cpp
+        oros_ai
+        oros_world
+    )
+
+    target_sources(
+        oros_bootstrap_live_ai_perception_group_demo_tests
+        PRIVATE
+            apps/bootstrap/live_ai_actor_demo.cpp
+            apps/bootstrap/live_ai_perception_group_demo.cpp
+            apps/bootstrap/navigation_demo.cpp
+    )
+
+    target_include_directories(
+        oros_bootstrap_live_ai_perception_group_demo_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_scheduled_activity_tests
+        oros.ai.actor_scheduled_activity
+        tests/ai/actor_scheduled_activity_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_schedule_tests
+        oros.ai.actor_schedule
+        tests/ai/actor_schedule_tests.cpp
+        oros_ai
+    )
+
+    oros_add_test_target(
+        oros_ai_actor_schedule_execution_state_tests
+        oros.ai.actor_schedule_execution_state
+        tests/ai/actor_schedule_execution_state_tests.cpp
+        oros_ai
     )
 endif()

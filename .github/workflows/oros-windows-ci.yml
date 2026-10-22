@@ -1,0 +1,66 @@
+name: OROS 1 Windows C++ Build and Tests
+
+on:
+  push:
+    branches:
+      - automation/oros-009-chat-build
+      - feature/oros-009-living-world
+  pull_request:
+    branches:
+      - feature/oros-009-living-world
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oros-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-msvc-debug:
+    name: Windows / MSVC 2022 / Debug / CTest
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Toolchain information
+        shell: pwsh
+        run: |
+          cmake --version
+          ctest --version
+
+      - name: Configure clean Windows build
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON -DOROS_WARNINGS_AS_ERRORS=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Audit complete C++ source inventory
+        shell: pwsh
+        run: |
+          python tools/review/oros_source_audit.py --repo . --output build/oros-source-inventory.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Compile all C++ targets
+        shell: pwsh
+        run: |
+          cmake --build build --config Debug --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run all registered CTest regressions
+        shell: pwsh
+        run: |
+          ctest --test-dir build -C Debug --output-on-failure --no-tests=error
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package Windows playtest executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: OROS-1-Windows-Debug
+          path: build/bin/Debug/Oros1.exe
+          if-no-files-found: error
+          retention-days: 14
