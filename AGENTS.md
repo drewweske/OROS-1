@@ -32,7 +32,7 @@ OROS 1 is a Windows-first custom C++23 game engine. Current milestone: **OROS-00
 - The phrase **"Build OROS"** in a user turn counts as one invocation, even when followed by other instructions. Count exactly once per requested development run, not per assistant tool call, commit, CI retry, or partial response.
 - Track invocation numbers in `docs/development/build-oros-runs.md` and update the record in every completed run.
 - **Every fifth invocation (5, 10, 15, ...)** perform a new full-repository structural inventory, module-by-module architecture review, critical-source and test review, CI status analysis, risks, findings and prioritized remediation plan; commit a dated report to `docs/architecture/reviews/`.
-- Run #2 (2026-10-21) establishes an extra baseline review. This does NOT change the next mandatory checkpoint at run #5.
+- Architecture review reports are committed at user runs #5 and #10 (2026-10-22); next mandatory report is at **#15**. Run #2 established an extra baseline review. Prior reports live in `docs/architecture/reviews/`.
 - A source inventory generated on every CI run is mechanical coverage, not a substitute for the fifth-run architectural reasoning review.
 - If a request explicitly calls for an extra audit, do it regardless of command number.
 - Never claim that a structural inventory is a line-by-line formal security audit. Report sampling limits and what could not be run.
@@ -45,7 +45,9 @@ OROS 1 is a Windows-first custom C++23 game engine. Current milestone: **OROS-00
 5. Do not spend user Codex usage. Do not send lengthy copy-paste PowerShell for routine changes.
 6. Never claim to have launched the end-user's native window or to have synchronized their laptop. PR merging needs deliberate review.
 
-## October 2026 handoff
-- Baseline `c9a95a9`: live NPC visual perception is invoked during fixed simulation ticks; in a previous interactive run the NPC logged visible and then out_of_range while preserving 1 remembered observation. 117/117 automated tests passed before local actor vision work.
-- User subsequently created **uncommitted, locally verified**: `engine/ai/include/oros/ai/actor_vision_state.hpp`, `tests/ai/actor_vision_state_tests.cpp`, CMake test registration (118 tests), and `apps/bootstrap/live_ai_actor_demo.hpp` optional actor vision field. Their File 7 compilation and 2/2 focused tests passed, but these files were not pushed.
-- Carefully reconstruct this work in the automation branch, without pretending to have copied local filesystem bytes. Next: initialize vision during actor composition in `apps/bootstrap/live_ai_actor_demo.cpp`, test persistence across fidelity transitions; then pass actor-owned parameters to the fixed simulation perception call in `apps/bootstrap/main.cpp`.
+## Current handoff — Build OROS #10, October 2026
+- First-party user screenshots confirmed the D3D12 grid renders and turning changes the view on a personal Windows GPU at run #7; later outpost revisions are built and tested in CI, not confirmed by another personal GPU screenshot.
+- The Windows CI pipeline publishes the game executable `Oros1.exe` as the `OROS-1-Windows-Debug` Actions artifact after compilation and CTest pass. The local checkout with old uncommitted work remains **separate**. Read `docs/development/run-oros-on-windows.md` before advising user playtests.
+- Outpost layout source of truth: `apps/bootstrap/outpost_layout.hpp`; three building boxes share an environment/floor EntityId with unique collider shape slots and are loaded in one WorldCell. This is a **bootstrap prototype** with no separate persistent building entities. NPC line-of-sight reads the same authoritative colliders as the player capsule controller.
+- Known architecture risks recorded in `docs/architecture/reviews/2026-10-22-oros-whole-engine-review-10.md`: per-tick AI memory copying, bootstrap `main.cpp` centralization, collider/entity identity coupling, spawn-origin assumptions, streaming platform leakage, missing GPU/Release/stress CI.
+- Next user command **#11**. Last validated pre-#10 baseline: `69dce00`, Windows/MSVC Debug, **123/123 CTest**. Do not declare run #10 verified until its own CI succeeds.

@@ -1504,6 +1504,7 @@ if(BUILD_TESTING)
         oros_bootstrap_outpost_collision_tests
         oros.bootstrap.outpost_collision
         tests/bootstrap/outpost_collision_tests.cpp
+        oros_ai
         oros_physical_world
         oros_physics
         oros_streaming

@@ -1,6 +1,9 @@
 #include "outpost_layout.hpp"
 #include "physical_world_demo.hpp"
 
+#include "oros/ai/actor_visual_perception.hpp"
+#include "oros/ai/actor_vision_profile.hpp"
+#include "oros/physical_world/world_segment_query.hpp"
 #include "oros/physical_world/world_first_person_controller.hpp"
 #include "oros/physics/collider_geometry.hpp"
 #include "oros/physics/collision_shape.hpp"
@@ -148,6 +151,87 @@ int main()
         player_position.local().z < 43.6 &&
         player_position.local().z >= 39.0,
         "The central tower blocks player forward traversal");
+
+    // An authored building must block both player locomotion AND
+    // observer sight. The same resident cell is authoritative for
+    // collision and AI perception; no graphics-only proxy raycast.
+    const auto tower_near = WorldPosition::create(
+        WorldCell{}, LocalPosition{0.0, 2.0, 39.0});
+    const auto tower_far = WorldPosition::create(
+        WorldCell{}, LocalPosition{0.0, 2.0, 55.0});
+    const auto lane_near = WorldPosition::create(
+        WorldCell{}, LocalPosition{20.0, 2.0, 39.0});
+    const auto lane_far = WorldPosition::create(
+        WorldCell{}, LocalPosition{20.0, 2.0, 55.0});
+
+    check(tests,
+        tower_near.has_value() && tower_far.has_value() &&
+        lane_near.has_value() && lane_far.has_value(),
+        "AI observation World endpoints are valid");
+
+    if (!tower_near || !tower_far || !lane_near || !lane_far)
+    {
+        return 1;
+    }
+
+    const auto blocked_segment = query_world_segment(
+        demo.registry, ns, tower_near.value(), tower_far.value());
+    const ColliderId tower_id{
+        environment,
+        first_outpost_collider_slot + 2U
+    };
+
+    check(tests,
+        blocked_segment.has_value() &&
+        blocked_segment->state() == WorldSegmentQueryState::blocked &&
+        blocked_segment->hit().has_value() &&
+        blocked_segment->hit()->collider() == tower_id,
+        "Tower collider is the blocking authority for straight sight ray");
+
+    const auto clear_segment = query_world_segment(
+        demo.registry, ns, lane_near.value(), lane_far.value());
+
+    check(tests,
+        clear_segment.has_value() &&
+        clear_segment->state() == WorldSegmentQueryState::clear,
+        "Parallel sight ray away from all three buildings stays clear");
+
+    const auto forward = oros::ai::ActorVisionDirection::create(
+        WorldDisplacement{0.0, 0.0, 1.0});
+    const auto profile = oros::ai::ActorVisionProfile::create(
+        100.0, 120.0);
+
+    check(tests,
+        forward.has_value() && profile.has_value(),
+        "Valid forward vision configuration created");
+
+    if (!forward || !profile)
+    {
+        return 1;
+    }
+
+    const EntityId npc_observer{ns, 43ULL};
+    const EntityId sight_target{ns, 44ULL};
+    const auto hidden = oros::ai::query_actor_visual_perception(
+        demo.registry, npc_observer, tower_near.value(),
+        forward.value(), profile.value(),
+        sight_target, tower_far.value());
+    const auto exposed = oros::ai::query_actor_visual_perception(
+        demo.registry, npc_observer, lane_near.value(),
+        forward.value(), profile.value(),
+        sight_target, lane_far.value());
+
+    check(tests,
+        hidden.has_value() &&
+        hidden.value() ==
+            oros::ai::ActorVisualPerceptionState::occluded,
+        "NPC sight is occluded by the real loaded tower collider");
+
+    check(tests,
+        exposed.has_value() &&
+        exposed.value() ==
+            oros::ai::ActorVisualPerceptionState::visible,
+        "NPC sees unobstructed player across an open lane");
 
     std::cout << "Outpost collision integration: "
               << tests.total - tests.failed << "/"
