@@ -467,9 +467,15 @@ int main()
     }
     const WorldPosition* const existing_position =
         world.find_position(target.value());
-    if (existing_position == nullptr ||
-        !world.add_position(
-            other_target.value(), *existing_position).has_value())
+    if (existing_position == nullptr)
+    {
+        return 1;
+    }
+    // Copy by value before the component store grows: insertion may
+    // invalidate borrowed pointers into World position storage.
+    const WorldPosition stable_target_position{*existing_position};
+    if (!world.add_position(
+            other_target.value(), stable_target_position).has_value())
     {
         return 1;
     }
