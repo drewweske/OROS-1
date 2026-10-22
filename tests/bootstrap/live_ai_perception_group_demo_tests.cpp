@@ -391,6 +391,72 @@ int main()
         second.visual_memory.size() == 1U,
         "64 distant multi-NPC ticks retain exact memory storage and facts");
 
+    // The all-distant fast path must reject invalid requests before
+    // returning its empty report, just as the reusable tick does.
+    const auto absent_distant = observe_live_ai_actor_group(
+        world, colliders, actors, absent_target,
+        WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        !absent_distant &&
+        absent_distant.error().code == ErrorCode::invalid_state &&
+        first.visual_memory.size() == 1U &&
+        second.visual_memory.size() == 1U,
+        "All-distant fast path rejects missing World target");
+
+    const std::array<EntityId, 2U> duplicate_targets{
+        target.value(), target.value()
+    };
+    const auto repeated_target_distant = observe_live_ai_actor_group(
+        world, colliders, actors, duplicate_targets,
+        WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        !repeated_target_distant &&
+        repeated_target_distant.error().code ==
+            ErrorCode::invalid_argument &&
+        first.visual_memory.size() == 1U,
+        "All-distant fast path rejects duplicate observer-target pairs");
+
+    const std::array<EntityId, 1U> self_target{
+        first.actor
+    };
+    const auto self_distant = observe_live_ai_actor_group(
+        world, colliders, actors, self_target,
+        WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        !self_distant &&
+        self_distant.error().code == ErrorCode::invalid_argument,
+        "All-distant fast path rejects self-observation");
+
+    const auto unpositioned_target = world.create_entity();
+    if (!unpositioned_target.has_value())
+    {
+        return 1;
+    }
+    const std::array<EntityId, 1U> no_position{
+        unpositioned_target.value()
+    };
+    const auto missing_position_distant =
+        observe_live_ai_actor_group(
+            world, colliders, actors, no_position,
+            WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        !missing_position_distant &&
+        missing_position_distant.error().code ==
+            ErrorCode::invalid_state &&
+        second.visual_memory.size() == 1U,
+        "All-distant fast path rejects a World entity without position");
+
+    const std::array<EntityId, 0U> no_targets{};
+    const auto empty_distant = observe_live_ai_actor_group(
+        world, colliders, actors, no_targets,
+        WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        empty_distant &&
+        empty_distant->skipped_distant_pairs == 0U &&
+        empty_distant->observations.empty() &&
+        !empty_distant->visual_memory_staged,
+        "All-distant empty request set returns an empty successful report");
+
     std::cout << "\nLive actor group: "
               << checks.count - checks.failed << "/"
               << checks.count << " checks passed\n";

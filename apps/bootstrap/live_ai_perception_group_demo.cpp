@@ -70,13 +70,14 @@ namespace oros::bootstrap
                     return a->actor < b->actor;
                 });
 
-            ai::ActorVisionStateRegistry visions{};
-            ai::ActorSimulationFidelityRegistry fidelities{};
-            ai::ActorVisualObservationMemory combined_memory{};
-
+            // First validate *all* actor ownership without copying
+            // visual memories or building temporary AI registries.
+            // The fully distant population is a common hot path and
+            // produces no new observations by definition.
+            bool all_distant = true;
             for (std::size_t i = 0U; i < ordered.size(); ++i)
             {
-                LiveAiActorDemo& actor = *ordered[i];
+                const LiveAiActorDemo& actor = *ordered[i];
 
                 if (
                     !actor.actor.is_valid() ||
@@ -106,18 +107,9 @@ namespace oros::bootstrap
                         fidelity.error().message);
                 }
 
-                const auto vision_status =
-                    visions.insert(*actor.vision_state);
-                const auto fidelity_status =
-                    fidelities.insert(actor.actor, fidelity.value());
-
-                if (!vision_status.has_value() ||
-                    !fidelity_status.has_value())
-                {
-                    return foundation::fail(
-                        foundation::ErrorCode::invalid_state,
-                        "Cannot assemble live NPC vision/fidelity.");
-                }
+                all_distant = all_distant &&
+                    fidelity.value() !=
+                        ai::ActorSimulationFidelity::deep_local;
 
                 for (const auto& memory :
                     actor.visual_memory.observations_in_canonical_order())
@@ -128,7 +120,116 @@ namespace oros::bootstrap
                             foundation::ErrorCode::invalid_state,
                             "NPC memory contains another observer's fact.");
                     }
+                }
+            }
 
+            if (all_distant)
+            {
+                // Do not weaken the reusable tick's request preflight
+                // when taking the no-memory-copy path. Validate every
+                // target and observer, even though there is no LOS
+                // or visibility work for distant actors.
+                std::vector<world::EntityId> sorted_targets{
+                    targets.begin(), targets.end()
+                };
+                std::sort(
+                    sorted_targets.begin(), sorted_targets.end());
+
+                for (std::size_t i = 0U;
+                     i < sorted_targets.size(); ++i)
+                {
+                    const world::EntityId target =
+                        sorted_targets[i];
+                    if (!target.is_valid() ||
+                        target.world_namespace !=
+                            world.world_namespace() ||
+                        (i > 0U &&
+                            sorted_targets[i - 1U] == target))
+                    {
+                        return foundation::fail(
+                            foundation::ErrorCode::invalid_argument,
+                            "Distant perception needs distinct "
+                            "valid World targets.");
+                    }
+
+                    const world::WorldPosition* position =
+                        world.find_position(target);
+                    if (!world.contains(target) ||
+                        position == nullptr ||
+                        !position->is_normalized())
+                    {
+                        return foundation::fail(
+                            foundation::ErrorCode::invalid_state,
+                            "Distant perception target must have "
+                            "a normalized World position.");
+                    }
+                }
+
+                if (!sorted_targets.empty())
+                {
+                    for (const LiveAiActorDemo* actor : ordered)
+                    {
+                        if (std::binary_search(
+                                sorted_targets.begin(),
+                                sorted_targets.end(), actor->actor))
+                        {
+                            return foundation::fail(
+                                foundation::ErrorCode::invalid_argument,
+                                "An NPC cannot observe itself.");
+                        }
+
+                        const world::WorldPosition* position =
+                            world.find_position(actor->actor);
+                        if (position == nullptr ||
+                            !position->is_normalized())
+                        {
+                            return foundation::fail(
+                                foundation::ErrorCode::invalid_state,
+                                "Distant NPC requires a normalized "
+                                "World position.");
+                        }
+                    }
+                }
+
+                ai::ActorVisualPerceptionTickReport idle_report{};
+                idle_report.skipped_distant_pairs =
+                    ordered.size() * targets.size();
+                return idle_report;
+            }
+
+            // Some observer is deep-local: preserve existing
+            // transactional combined-memory path for visible, stale,
+            // missing and unavailable World observations.
+            ai::ActorVisionStateRegistry visions{};
+            ai::ActorSimulationFidelityRegistry fidelities{};
+            ai::ActorVisualObservationMemory combined_memory{};
+
+            for (const LiveAiActorDemo* actor : ordered)
+            {
+                const auto fidelity =
+                    actor->fidelity_registry.fidelity(actor->actor);
+                if (!fidelity.has_value())
+                {
+                    return foundation::fail(
+                        fidelity.error().code, fidelity.error().message);
+                }
+
+                const auto vision_status =
+                    visions.insert(*actor->vision_state);
+                const auto fidelity_status =
+                    fidelities.insert(actor->actor, fidelity.value());
+
+                if (!vision_status.has_value() ||
+                    !fidelity_status.has_value())
+                {
+                    return foundation::fail(
+                        foundation::ErrorCode::invalid_state,
+                        "Cannot assemble live NPC vision/fidelity.");
+                }
+
+                for (const auto& memory :
+                    actor->visual_memory.observations_in_canonical_order())
+                {
                     const auto remembered =
                         combined_memory.remember(memory);
                     if (!remembered.has_value())
