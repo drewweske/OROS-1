@@ -223,6 +223,54 @@ int main()
                 ErrorCode::invalid_argument,
         "Non-finite landmark height is rejected");
 
+    const auto ground_surface =
+        build_debug_world_solids(empty, 16.0F / 9.0F);
+    check(state,
+        ground_surface.has_value() &&
+            ground_surface->size() >= 6U &&
+            ground_surface->size() % 3U == 0U,
+        "Opaque ground generates clipped triangle-list surfaces");
+    if (!ground_surface) { return 1; }
+
+    bool depths_valid = true;
+    for (const auto& vertex : ground_surface.value())
+    {
+        depths_valid = depths_valid &&
+            std::isfinite(vertex.x) &&
+            std::isfinite(vertex.y) &&
+            std::isfinite(vertex.depth) &&
+            vertex.depth >= 0.0F &&
+            vertex.depth <= 1.0F;
+    }
+    check(state, depths_valid,
+        "Perspective solid vertices have valid GPU depth");
+
+    const auto opaque_outpost =
+        build_debug_world_solids(outpost, 16.0F / 9.0F);
+    check(state,
+        opaque_outpost.has_value() &&
+            opaque_outpost->size() >
+                ground_surface->size() &&
+            opaque_outpost->size() % 3U == 0U,
+        "Buildings add solid wall and pitched-roof triangles");
+
+    const auto opaque_repeat =
+        build_debug_world_solids(outpost, 16.0F / 9.0F);
+    check(state,
+        opaque_repeat.has_value() &&
+            opaque_outpost.has_value() &&
+            opaque_repeat->size() == opaque_outpost->size() &&
+            opaque_repeat.value().back().depth ==
+                opaque_outpost.value().back().depth,
+        "Opaque projection reproduces identical camera depths");
+
+    const auto rejected_solids =
+        build_debug_world_solids(invalid_landmark, 1.0F);
+    check(state,
+        !rejected_solids.has_value() &&
+            rejected_solids.error().code ==
+                ErrorCode::invalid_argument,
+        "Invalid building data fails opaque projection as well");
     std::cout << "Debug world geometry: "
               << state.count - state.failures << "/"
               << state.count << " passed\n";

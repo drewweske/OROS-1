@@ -54,6 +54,22 @@ namespace oros::rendering
         float green{};
         float blue{};
         float alpha{1.0F};
+        // D3D12 normalized camera-space depth. Line decorations
+        // test against opaque geometry without writing depth.
+        float depth{};
+    };
+
+    // Drawn as a GPU triangle-list before line decorations. Colors
+    // and depths are produced by pure deterministic CPU projection.
+    struct DebugWorldSolidVertex final
+    {
+        float x{};
+        float y{};
+        float depth{};
+        float red{};
+        float green{};
+        float blue{};
+        float alpha{1.0F};
     };
 
     // Pure deterministic camera projection, testable without a GPU.
@@ -61,6 +77,13 @@ namespace oros::rendering
     [[nodiscard]]
     foundation::Result<std::vector<DebugWorldVertex>>
     build_debug_world_lines(
+        const DebugWorldScene& scene,
+        float aspect_ratio);
+
+    // Bounded, near-clipped flat-shaded ground and building faces.
+    [[nodiscard]]
+    foundation::Result<std::vector<DebugWorldSolidVertex>>
+    build_debug_world_solids(
         const DebugWorldScene& scene,
         float aspect_ratio);
 }
