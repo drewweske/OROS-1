@@ -750,15 +750,23 @@ int main()
 
     check(
         state,
-        memory.forget_entity(target) == 2U &&
-            memory.empty() &&
+        memory.forget_entity(target) == 1U &&
+            memory.size() == 1U &&
             !memory.contains(observer, target) &&
-            !memory.contains(earlier_observer, target),
-        "Despawn purge removes both remembered target and observer facts");
+            memory.contains(earlier_observer, third_target),
+        "Target despawn removes its references but preserves unrelated facts");
+
+    check(
+        state,
+        memory.forget_entity(earlier_observer) == 1U &&
+            memory.empty() &&
+            !memory.contains(earlier_observer, third_target),
+        "Observer despawn purges all facts owned by the retired observer");
 
     check(
         state,
         memory.forget_entity(target) == 0U &&
+            memory.forget_entity(earlier_observer) == 0U &&
             memory.empty(),
         "Despawn memory purge is idempotent");
 
