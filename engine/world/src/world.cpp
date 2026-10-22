@@ -37,31 +37,10 @@ namespace oros::world
     foundation::Result<EntityId>
     World::create_entity()
     {
-        const std::size_t required_capacity =
-            entities_.size() + 1U;
-
-        try
-        {
-            entities_.reserve(
-                required_capacity);
-        }
-        catch (const std::bad_alloc&)
-        {
-            return foundation::fail(
-                foundation::ErrorCode::
-                    out_of_memory,
-                "World could not reserve memory for "
-                "another entity.");
-        }
-        catch (...)
-        {
-            return foundation::fail(
-                foundation::ErrorCode::
-                    internal_failure,
-                "World failed while reserving entity "
-                "storage.");
-        }
-
+        // Let unordered_set manage geometric bucket growth. A
+        // reserve(size + 1) on every creation can repeatedly request
+        // rehashes. The generator still owns persistent identity:
+        // failed insertion may leave a gap but can never reuse an ID.
         foundation::Result<EntityId> id_result =
             id_generator_.generate();
 

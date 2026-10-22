@@ -22,10 +22,14 @@ This file makes the ChatGPT-only development cadence verifiable across sessions.
 | 12 | 2026-10-22 | `821d52b` -> `594cdce` | World-relative scene extraction with origin-anchored outpost and World-cell boundary tests; Windows CI 124/124 passed | Not due |
 | 13 | 2026-10-22 | `594cdce` -> `ab2a8af` | Explicit NPC retirement and visual-memory cleanup; Windows/MSVC CI 125/125 CTest passed after test-fixture corrections | Not due |
 | 14 | 2026-10-22 | `ab2a8af` -> `fa6cae0` | Lazy memory staging on visible ticks only; pointer-stable inactive memory across 64 repeated ticks; Windows/MSVC 125/125 CTest passed | Not due |
-| 15 | 2026-10-22 | `fa6cae0` -> mandatory architecture review #15 + bulk memory import | Mandatory full Git-tree architecture comparison vs #10 and ranked debt review; validated atomic canonical memory bulk replacement and regression tests; Windows CI pending | **Mandatory whole-engine review committed** |
+| 15 | 2026-10-22 | `fa6cae0` -> `9705e6e` -> official `main` merge `31937ea` | Mandatory full architecture review #15 and atomic canonical memory import; 125/125 Windows CTest passed; owner-authorized PR #8 merged preserving history | **Mandatory review and 15-build canonization completed** |
+| 16 | 2026-10-22 | `31937ea` -> `b527655` | World entity capacity-growth fix, 10,000-entity lifecycle regression and mainline 15-build canonization policy; Windows/MSVC 126/126 CTest passed | Not due |
+| 17 | 2026-10-22 | `b527655` -> `eb73508` | All-distant NPC fast path with strict World/request validation; Windows/MSVC 126/126 CTest passed | Not due |
+| 18 | 2026-10-22 | `eb73508` -> canonical owned memory batching | Assemble mixed NPC memories in one reserved canonical vector and move into transactional memory; enforce sorted unique keys, rejected-update atomicity and mixed-fidelity history preservation; Windows CI pending | Not due |
 
-**Latest user command:** #15  
-**Next command:** #16  
-**Next required five-run audit:** **#20**
+**Latest user command:** #18  
+**Next command:** #19  
+**Next required five-run audit:** **#20**  
+**Next official mainline canonization evaluation:** **#30** (after exact-SHA verification and deliberate review).
 
 When a new "Build OROS" request arrives, read this ledger before choosing work, advance the count once when the run is recorded, and do not skip the review at multiples of five. If no code change was possible, still report that execution was blocked instead of inventing a completed run.

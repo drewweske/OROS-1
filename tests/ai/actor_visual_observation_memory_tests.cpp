@@ -11,6 +11,7 @@
 #include <iostream>
 #include <limits>
 #include <span>
+#include <vector>
 #include <string_view>
 
 namespace
@@ -733,6 +734,62 @@ int main()
         state,
         empty_import.has_value() && bulk.empty(),
         "Empty canonical import clears memory deterministically");
+
+    // Owned canonical import transfers the exact vector allocation
+    // rather than allocating/copying facts again after the caller has
+    // assembled a canonical buffer.
+    std::vector<ActorVisualObservation> owned_input{
+        canonical.begin(), canonical.end()
+    };
+    const auto* const owned_data = owned_input.data();
+    const auto owned_success =
+        bulk.replace_canonical_owned(std::move(owned_input));
+    check(
+        state,
+        owned_success.has_value() &&
+            bulk.size() == canonical.size() &&
+            bulk.observations_in_canonical_order().data() == owned_data &&
+            bulk.contains(observer, target) &&
+            bulk.contains(earlier_observer, third_target),
+        "Owned canonical import transfers original allocation");
+
+    std::vector<ActorVisualObservation> unsorted_owned{
+        canonical[1], canonical[0], canonical[2]
+    };
+    const auto* const prior_bulk_data =
+        bulk.observations_in_canonical_order().data();
+    const auto bad_owned =
+        bulk.replace_canonical_owned(std::move(unsorted_owned));
+    check(
+        state,
+        !bad_owned.has_value() &&
+            bad_owned.error().code == ErrorCode::invalid_argument &&
+            bulk.observations_in_canonical_order().data() ==
+                prior_bulk_data &&
+            bulk.size() == 3U,
+        "Invalid owned import cannot replace existing allocation");
+
+    std::vector<ActorVisualObservation> repeated_owned{
+        canonical[0], canonical[0]
+    };
+    const auto duplicate_owned =
+        bulk.replace_canonical_owned(std::move(repeated_owned));
+    check(
+        state,
+        !duplicate_owned.has_value() &&
+            duplicate_owned.error().code == ErrorCode::invalid_argument &&
+            bulk.observations_in_canonical_order().data() ==
+                prior_bulk_data &&
+            bulk.contains(observer, second_target),
+        "Duplicate owned keys reject without any memory mutation");
+
+    std::vector<ActorVisualObservation> no_facts{};
+    const auto empty_owned =
+        bulk.replace_canonical_owned(std::move(no_facts));
+    check(
+        state,
+        empty_owned.has_value() && bulk.empty(),
+        "Empty owned canonical import clears facts");
 
     const auto observer_range_result =
         memory.observations_for_observer(

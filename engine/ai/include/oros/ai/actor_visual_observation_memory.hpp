@@ -60,6 +60,15 @@ namespace oros::ai
         replace_canonical(
             std::span<const ActorVisualObservation> observations);
 
+        // Accept an already-owned canonical vector without copying its
+        // observations again. Reject unsorted/duplicate/invalid input
+        // before swapping with live memory. The caller gives up its
+        // buffer on entry; on error live memory remains unchanged.
+        [[nodiscard]]
+        foundation::Status
+        replace_canonical_owned(
+            std::vector<ActorVisualObservation>&& observations);
+
         [[nodiscard]]
         foundation::Status
         forget(

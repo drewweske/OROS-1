@@ -3,10 +3,12 @@ name: OROS 1 Windows C++ Build and Tests
 on:
   push:
     branches:
-      - automation/oros-009-chat-build
+      - main
+      - 'automation/oros-*'
       - feature/oros-009-living-world
   pull_request:
     branches:
+      - main
       - feature/oros-009-living-world
   workflow_dispatch:
 
