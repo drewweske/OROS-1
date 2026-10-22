@@ -742,5 +742,25 @@ int main()
                 ErrorCode::not_found,
         "Forgetting an absent visual observation reports not-found");
 
+    check(
+        state,
+        memory.forget_entity(invalid_entity_id) == 0U &&
+            memory.size() == 2U,
+        "Invalid entity cleanup leaves visual memory unchanged");
+
+    check(
+        state,
+        memory.forget_entity(target) == 2U &&
+            memory.empty() &&
+            !memory.contains(observer, target) &&
+            !memory.contains(second_observer, target),
+        "Despawn purge removes both remembered target and observer facts");
+
+    check(
+        state,
+        memory.forget_entity(target) == 0U &&
+            memory.empty(),
+        "Despawn memory purge is idempotent");
+
     return finish(state);
 }

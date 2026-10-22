@@ -207,6 +207,27 @@ namespace oros::ai
         return {};
     }
 
+    std::size_t
+    ActorVisualObservationMemory::forget_entity(
+        const world::EntityId entity) noexcept
+    {
+        if (!entity.is_valid())
+        {
+            return 0U;
+        }
+
+        // ActorVisualObservation has nothrow move operations.
+        // Erase cannot allocate or change the order of survivors.
+        return std::erase_if(
+            observations_,
+            [entity](const ActorVisualObservation& observation)
+                noexcept
+            {
+                return observation.observer() == entity ||
+                    observation.target() == entity;
+            });
+    }
+
     bool
     ActorVisualObservationMemory::contains(
         const world::EntityId observer,

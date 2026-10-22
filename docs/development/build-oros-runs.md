@@ -19,10 +19,11 @@ This file makes the ChatGPT-only development cadence verifiable across sessions.
 | 9 | 2026-10-22 | `6e948ab` -> `69dce00` | Authored outpost layout connects three loaded box colliders to renderer; Windows/MSVC 123/123 CTest passed, playtest artifact published | Not due |
 | 10 | 2026-10-22 | `69dce00` -> `d6c876b` | Mandatory full-engine architecture review, regression for AI sight through the same loaded outpost walls; Windows CI 123/123 passed | **Mandatory review completed** |
 | 11 | 2026-10-22 | `d6c876b` -> `821d52b` | Solid D3D12 ground and pitched-roof buildings with GPU depth testing; Windows CI 123/123 tests passed | Not due |
-| 12 | 2026-10-22 | `821d52b` -> World scene extraction | Separate World-relative visual scene composition from bootstrap loop, anchor visible buildings to collision's fixed World origin, validate non-origin spawns and World-cell transitions; Windows CI pending | Not due |
+| 12 | 2026-10-22 | `821d52b` -> `594cdce` | World-relative scene extraction with origin-anchored outpost and World-cell boundary tests; Windows CI 124/124 passed | Not due |
+| 13 | 2026-10-22 | `594cdce` -> explicit NPC retirement | Add canonical allocation-free visual memory purge and validated World-owned NPC retirement; test survivor memory isolation, identity non-reuse and invalid-roster atomicity | Not due |
 
-**Latest user command:** #12  
-**Next command:** #13  
+**Latest user command:** #13  
+**Next command:** #14  
 **Next required five-run audit:** **#15**
 
 When a new "Build OROS" request arrives, read this ledger before choosing work, advance the count once when the run is recorded, and do not skip the review at multiples of five. If no code change was possible, still report that execution was blocked instead of inventing a completed run.

@@ -559,6 +559,7 @@ target_sources(
     oros_bootstrap
     PRIVATE
         apps/bootstrap/live_ai_actor_demo.cpp
+        apps/bootstrap/live_ai_actor_lifecycle_demo.cpp
         apps/bootstrap/live_ai_perception_group_demo.cpp
         apps/bootstrap/live_debug_world_scene.cpp
         apps/bootstrap/live_player_demo.cpp
@@ -1540,6 +1541,28 @@ if(BUILD_TESTING)
 
     target_include_directories(
         oros_bootstrap_outpost_collision_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
+    )
+
+    oros_add_test_target(
+        oros_bootstrap_live_ai_actor_lifecycle_demo_tests
+        oros.bootstrap.live_ai_actor_lifecycle
+        tests/bootstrap/live_ai_actor_lifecycle_demo_tests.cpp
+        oros_ai
+        oros_world
+    )
+
+    target_sources(
+        oros_bootstrap_live_ai_actor_lifecycle_demo_tests
+        PRIVATE
+            apps/bootstrap/live_ai_actor_demo.cpp
+            apps/bootstrap/live_ai_actor_lifecycle_demo.cpp
+            apps/bootstrap/navigation_demo.cpp
+    )
+
+    target_include_directories(
+        oros_bootstrap_live_ai_actor_lifecycle_demo_tests
         PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
     )

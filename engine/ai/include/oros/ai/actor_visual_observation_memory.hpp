@@ -55,6 +55,14 @@ namespace oros::ai
             world::EntityId observer,
             world::EntityId target);
 
+        // Despawn cleanup: remove every observation mentioning this
+        // identity, whether it is the observer or remembered target.
+        // Idempotent (0 for missing/invalid ID). Preserves canonical
+        // order and never allocates. Invalidates borrowed spans.
+        [[nodiscard]]
+        std::size_t forget_entity(
+            world::EntityId entity) noexcept;
+
         [[nodiscard]]
         bool contains(
             world::EntityId observer,
