@@ -60,11 +60,23 @@ int main()
     scene.grid_phase_z = -2.0F;
     scene.markers = markers;
 
+    // Clipping changes the number of visible ground segments when
+    // the grid phase changes. Compare the *same* phase, not the
+    // unshifted grid from the beginning of the test.
+    DebugWorldScene same_grid = scene;
+    same_grid.markers = {};
+    const auto phased_grid = build_debug_world_lines(
+        same_grid, 16.0F / 9.0F);
+    check(state,
+        phased_grid.has_value() && !phased_grid->empty(),
+        "Ground geometry with shifted grid phase builds");
+    if (!phased_grid) { return 1; }
+
     const auto with_npcs = build_debug_world_lines(
         scene, 16.0F / 9.0F);
     check(state,
         with_npcs.has_value() &&
-        with_npcs->size() == grid->size() + 12U,
+        with_npcs->size() == phased_grid->size() + 12U,
         "Two NPC posts each add three colored line segments");
     if (!with_npcs) { return 1; }
 
@@ -72,8 +84,8 @@ int main()
     check(state,
         repeated.has_value() &&
         repeated->size() == with_npcs->size() &&
-        repeated.value()[grid->size()].x ==
-            with_npcs.value()[grid->size()].x,
+        repeated.value()[phased_grid->size()].x ==
+            with_npcs.value()[phased_grid->size()].x,
         "World projection is deterministic for identical inputs");
 
     DebugWorldScene moved = scene;
