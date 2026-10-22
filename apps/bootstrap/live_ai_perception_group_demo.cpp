@@ -18,7 +18,8 @@ namespace oros::bootstrap
         const physical_world::WorldCellColliderRegistry& colliders,
         const std::span<LiveAiActorDemo* const> actors,
         const std::span<const world::EntityId> targets,
-        const world::WorldTime observed_at)
+        const world::WorldTime observed_at,
+        const std::size_t maximum_requests)
     {
         if (actors.empty())
         {
@@ -35,6 +36,13 @@ namespace oros::bootstrap
             return foundation::fail(
                 foundation::ErrorCode::invalid_argument,
                 "Live perception group request count overflows.");
+        }
+
+        if (actors.size() * targets.size() > maximum_requests)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::invalid_argument,
+                "Live perception group exceeds its request budget.");
         }
 
         try
@@ -146,7 +154,8 @@ namespace oros::bootstrap
 
             auto result = ai::observe_actor_visual_perception_tick(
                 world, colliders, visions, fidelities,
-                combined_memory, requests, observed_at);
+                combined_memory, requests, observed_at,
+                maximum_requests);
 
             if (!result.has_value())
             {

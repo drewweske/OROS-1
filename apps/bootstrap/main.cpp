@@ -2020,7 +2020,9 @@ int main()
                                             physical_world_demo.registry,
                                             live_ai_perception_actors,
                                             live_ai_perception_targets,
-                                            observation_time);
+                                            observation_time,
+                                            live_ai_perception_actors.size() *
+                                                live_ai_perception_targets.size());
 
                                 if (!perception_result.has_value())
                                 {

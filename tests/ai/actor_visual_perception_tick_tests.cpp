@@ -189,8 +189,21 @@ int main()
     const WorldTime first_time =
         WorldTime::from_microseconds_since_epoch(1'000'000ULL);
 
+    // The budget is checked before the engine can evaluate even one
+    // expensive sight ray or mutate an observer's memory.
+    const auto over_budget = observe_actor_visual_perception_tick(
+        world, clear, visions, fidelities, memory,
+        reversed, first_time, 1U);
+    check(test,
+        !over_budget.has_value() &&
+        over_budget.error().code ==
+            ErrorCode::invalid_argument &&
+        memory.empty(),
+        "Over-budget perception is rejected without creating memory");
+
     const auto first_tick = observe_actor_visual_perception_tick(
-        world, clear, visions, fidelities, memory, reversed, first_time);
+        world, clear, visions, fidelities, memory,
+        reversed, first_time, 2U);
 
     check(test,
         first_tick.has_value() &&

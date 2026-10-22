@@ -17,8 +17,18 @@ namespace oros::ai
         const ActorSimulationFidelityRegistry& fidelities,
         ActorVisualObservationMemory& memory,
         const std::span<const ActorVisualPerceptionTickRequest> requests,
-        const world::WorldTime observed_at)
+        const world::WorldTime observed_at,
+        const std::size_t maximum_requests)
     {
+        // Fail closed before sorting, staging memory, or doing LOS
+        // queries. The scheduler can use a smaller bounded batch.
+        if (requests.size() > maximum_requests)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::invalid_argument,
+                "Visual perception tick exceeds its request budget.");
+        }
+
         auto less = [](
             const ActorVisualPerceptionTickRequest& a,
             const ActorVisualPerceptionTickRequest& b) noexcept

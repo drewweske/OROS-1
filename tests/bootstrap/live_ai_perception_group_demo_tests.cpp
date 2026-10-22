@@ -197,8 +197,19 @@ int main()
     const WorldTime first_time =
         WorldTime::from_microseconds_since_epoch(1'000'000ULL);
 
+    const auto blocked_budget = observe_live_ai_actor_group(
+        world, colliders, actors, targets, first_time, 1U);
+    check(
+        checks,
+        !blocked_budget.has_value() &&
+            blocked_budget.error().code ==
+                ErrorCode::invalid_argument &&
+            first.visual_memory.empty() &&
+            second.visual_memory.empty(),
+        "Bootstrap over-budget roster rejects without changing NPC memories");
+
     const auto observed = observe_live_ai_actor_group(
-        world, colliders, actors, targets, first_time);
+        world, colliders, actors, targets, first_time, 2U);
     check(
         checks,
         observed.has_value() &&

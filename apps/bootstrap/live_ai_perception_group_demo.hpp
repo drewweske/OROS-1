@@ -7,6 +7,8 @@
 #include "oros/physical_world/world_cell_collider_registry.hpp"
 #include "oros/world/world.hpp"
 
+#include <cstddef>
+#include <limits>
 #include <span>
 
 namespace oros::bootstrap
@@ -25,5 +27,7 @@ namespace oros::bootstrap
         const physical_world::WorldCellColliderRegistry& colliders,
         std::span<LiveAiActorDemo* const> actors,
         std::span<const world::EntityId> targets,
-        world::WorldTime observed_at);
+        world::WorldTime observed_at,
+        std::size_t maximum_requests =
+            (std::numeric_limits<std::size_t>::max)());
 }

@@ -10,6 +10,7 @@
 #include "oros/world/world_time.hpp"
 
 #include <cstddef>
+#include <limits>
 #include <span>
 #include <vector>
 
@@ -47,6 +48,10 @@ namespace oros::ai
     // A failed batch leaves the original visual memory unchanged, even
     // when an earlier pair would otherwise update it.
     //
+    // maximum_requests is a hard caller-supplied budget. If the
+    // request set exceeds it, the entire batch fails without any
+    // expensive query, allocation or visual-memory mutation.
+    //
     // This initial implementation stages a memory copy for atomicity.
     // Callers should later add explicit NPC sight budgets before using
     // it for large populations. It does not discover NPCs or targets.
@@ -59,5 +64,7 @@ namespace oros::ai
         const ActorSimulationFidelityRegistry& fidelities,
         ActorVisualObservationMemory& memory,
         std::span<const ActorVisualPerceptionTickRequest> requests,
-        world::WorldTime observed_at);
+        world::WorldTime observed_at,
+        std::size_t maximum_requests =
+            (std::numeric_limits<std::size_t>::max)());
 }
