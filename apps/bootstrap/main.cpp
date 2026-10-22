@@ -16,6 +16,7 @@
 
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <limits>
@@ -2218,9 +2219,108 @@ int main()
                                 continue;
                             }
 
+                            // Follow the World-owned player rather
+                            // than a separate graphics-only position.
+                            const WorldPosition* visual_player =
+                                world.find_position(player_entity);
+
+                            if (visual_player == nullptr)
+                            {
+                                write_log(
+                                    LogLevel::critical,
+                                    "rendering",
+                                    "Missing World-owned player render anchor.");
+                                exit_code = 1;
+                                simulation_frame_failed = true;
+                                if (!request_runtime_stop(
+                                        "missing visual player position"))
+                                {
+                                    simulation_stop_failed = true;
+                                }
+                                continue;
+                            }
+
+                            std::array<DebugWorldMarker, 2>
+                                visual_npcs{};
+                            bool visual_actors_valid = true;
+
+                            for (std::size_t i = 0U;
+                                 i < live_ai_perception_actors.size();
+                                 ++i)
+                            {
+                                const WorldPosition* npc_position =
+                                    world.find_position(
+                                        live_ai_perception_actors[i]->actor);
+                                if (npc_position == nullptr)
+                                {
+                                    visual_actors_valid = false;
+                                    break;
+                                }
+
+                                const auto displacement =
+                                    visual_player->displacement_to(
+                                        *npc_position);
+                                if (!displacement.has_value())
+                                {
+                                    visual_actors_valid = false;
+                                    break;
+                                }
+
+                                visual_npcs[i] = DebugWorldMarker{
+                                    static_cast<float>(
+                                        displacement.value().x),
+                                    static_cast<float>(
+                                        displacement.value().z),
+                                    i == 0U ? 1.0F : 0.45F,
+                                    i == 0U ? 0.66F : 1.0F,
+                                    i == 0U ? 0.20F : 0.42F
+                                };
+                            }
+
+                            if (!visual_actors_valid)
+                            {
+                                write_log(
+                                    LogLevel::critical,
+                                    "rendering",
+                                    "Missing NPC World position for scene.");
+                                exit_code = 1;
+                                simulation_frame_failed = true;
+                                if (!request_runtime_stop(
+                                        "missing visual NPC position"))
+                                {
+                                    simulation_stop_failed = true;
+                                }
+                                continue;
+                            }
+
+                            // A 1024-meter WorldCell contributes 4 mod 5
+                            // to a five-meter grid: crossing cells does
+                            // not cause the visible floor to jump.
+                            const auto grid_phase =
+                                [](const std::int64_t cell,
+                                   const double local) noexcept
+                                {
+                                    return static_cast<float>(
+                                        std::fmod(
+                                            static_cast<double>(
+                                                cell % 5LL) * 4.0 +
+                                                local,
+                                            5.0));
+                                };
+
+                            DebugWorldScene debug_scene{};
+                            debug_scene.grid_phase_x = grid_phase(
+                                visual_player->cell().x,
+                                visual_player->local().x);
+                            debug_scene.grid_phase_z = grid_phase(
+                                visual_player->cell().z,
+                                visual_player->local().z);
+                            debug_scene.markers = visual_npcs;
+
                             const Status frame_status =
-                                renderer.draw_frame(
-                                    first_light_color);
+                                renderer.draw_world_frame(
+                                    first_light_color,
+                                    debug_scene);
 
                             if (!frame_status.has_value())
                             {
