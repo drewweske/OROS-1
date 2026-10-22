@@ -168,8 +168,10 @@ namespace oros::ai
                 });
             }
 
+            // Both moves are noexcept; after the memory commit, the
+            // report return cannot allocate or trigger a rollback error.
             memory = std::move(staged_memory);
-            return report;
+            return std::move(report);
         }
         catch (const std::bad_alloc&)
         {
