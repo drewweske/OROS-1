@@ -204,6 +204,30 @@ namespace oros::bootstrap
             ai::ActorSimulationFidelityRegistry fidelities{};
             ai::ActorVisualObservationMemory combined_memory{};
 
+            // Actor roster and each actor's memory have been validated
+            // above. Ordered actors plus individually canonical facts
+            // form one globally canonical sequence. Assemble it in a
+            // single reserved allocation rather than repeated sorted
+            // vector insertion, then commit the owned buffer without
+            // a second copy.
+            std::size_t fact_count{};
+            for (const LiveAiActorDemo* actor : ordered)
+            {
+                const auto facts =
+                    actor->visual_memory.observations_in_canonical_order();
+                if (facts.size() >
+                    (std::numeric_limits<std::size_t>::max)() - fact_count)
+                {
+                    return foundation::fail(
+                        foundation::ErrorCode::invalid_argument,
+                        "Combined NPC memory size overflows.");
+                }
+                fact_count += facts.size();
+            }
+
+            std::vector<ai::ActorVisualObservation> canonical_facts{};
+            canonical_facts.reserve(fact_count);
+
             for (const LiveAiActorDemo* actor : ordered)
             {
                 const auto fidelity =
@@ -227,18 +251,21 @@ namespace oros::bootstrap
                         "Cannot assemble live NPC vision/fidelity.");
                 }
 
-                for (const auto& memory :
-                    actor->visual_memory.observations_in_canonical_order())
-                {
-                    const auto remembered =
-                        combined_memory.remember(memory);
-                    if (!remembered.has_value())
-                    {
-                        return foundation::fail(
-                            remembered.error().code,
-                            remembered.error().message);
-                    }
-                }
+                const auto facts =
+                    actor->visual_memory.observations_in_canonical_order();
+                canonical_facts.insert(
+                    canonical_facts.end(),
+                    facts.begin(), facts.end());
+            }
+
+            const foundation::Status combined_status =
+                combined_memory.replace_canonical_owned(
+                    std::move(canonical_facts));
+            if (!combined_status.has_value())
+            {
+                return foundation::fail(
+                    combined_status.error().code,
+                    combined_status.error().message);
             }
 
             std::vector<ai::ActorVisualPerceptionTickRequest>

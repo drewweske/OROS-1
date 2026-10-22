@@ -457,6 +457,60 @@ int main()
         !empty_distant->visual_memory_staged,
         "All-distant empty request set returns an empty successful report");
 
+    // One actor can remember multiple targets. Mixed fidelity
+    // still rebuilds the combined memory transactionally, without
+    // duplicating or losing unrelated historical facts.
+    const auto other_target = world.create_entity();
+    if (!other_target.has_value())
+    {
+        return 1;
+    }
+    const WorldPosition* const existing_position =
+        world.find_position(target.value());
+    if (existing_position == nullptr ||
+        !world.add_position(
+            other_target.value(), *existing_position).has_value())
+    {
+        return 1;
+    }
+    const auto historical_first =
+        ActorVisualObservation::create(
+            first.actor, other_target.value(),
+            *world.find_position(other_target.value()),
+            WorldTime::from_microseconds_since_epoch(2'500'000ULL),
+            first.vision_state->confidence());
+    const auto historical_second =
+        ActorVisualObservation::create(
+            second.actor, other_target.value(),
+            *world.find_position(other_target.value()),
+            WorldTime::from_microseconds_since_epoch(2'600'000ULL),
+            second.vision_state->confidence());
+    if (!historical_first || !historical_second ||
+        !first.visual_memory.remember(historical_first.value()) ||
+        !second.visual_memory.remember(historical_second.value()))
+    {
+        return 1;
+    }
+
+    const auto local_first = first.fidelity_registry.transition(
+        first.actor, ActorSimulationFidelity::deep_local);
+    const auto mixed_tick = observe_live_ai_actor_group(
+        world, colliders, actors, targets,
+        WorldTime::from_microseconds_since_epoch(9'000'000ULL));
+    check(checks,
+        local_first.has_value() &&
+        mixed_tick.has_value() &&
+        mixed_tick->skipped_distant_pairs == 1U &&
+        mixed_tick->observations.size() == 1U &&
+        mixed_tick->visual_memory_staged &&
+        first.visual_memory.size() == 2U &&
+        second.visual_memory.size() == 2U &&
+        first.visual_memory.contains(first.actor, other_target.value()) &&
+        second.visual_memory.contains(second.actor, other_target.value()) &&
+        first.visual_memory.contains(first.actor, target.value()) &&
+        second.visual_memory.contains(second.actor, target.value()),
+        "Mixed-fidelity batch retains multiple independent canonical facts");
+
     std::cout << "\nLive actor group: "
               << checks.count - checks.failed << "/"
               << checks.count << " checks passed\n";
