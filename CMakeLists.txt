@@ -730,6 +730,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_world_population_growth_tests
+        oros.world.population_growth
+        tests/world/world_population_growth_tests.cpp
+        oros_world
+    )
+
+    oros_add_test_target(
         oros_physics_vector_tests
         oros.physics.vector
         tests/physics/physics_vector_tests.cpp

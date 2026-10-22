@@ -1,6 +1,6 @@
 # OROS engineering bottleneck backlog
 
-**As of:** 2026-10-22, Build OROS #15. This is a prioritized, evidence-linked list of hypotheses and tested fixes, **not** a claim of exhaustive profiling. Current authoritative design is in `fromthecreator.txt`. Reprioritize from code and CI on every invocation.
+**As of:** 2026-10-22, Build OROS #16. This is a prioritized, evidence-linked list of hypotheses and tested fixes, **not** a claim of exhaustive profiling. Current authoritative design is in `fromthecreator.txt`. Reprioritize from code and CI on every invocation.
 
 | ID | Severity | Area / evidence | Hypothesis or observed issue | Acceptance evidence | Status / dependencies |
 | --- | --- | --- | --- | --- | --- |
@@ -12,5 +12,6 @@
 | OROS-B006 | P2 | `engine/rendering/src/d3d12/renderer.cpp`; prior user screenshots and review #10 | **Observed:** graybox depth-tested triangles but no textured cooked asset scene, native GPU playtest of newer revisions not verified | GPU screen capture and input/collision agreement; loaded cooked asset models with stable handles | Open; visual milestone |
 | OROS-B007 | P2 | `.github/workflows/oros-windows-ci.yml`; latest 125/125 Debug CTest | **Observed:** no Release/performance/stress or crash-injection CI matrix | Release builds and reproducible fixed-workload timings with CI hardware identity and tolerance; no unresolved warnings | Open |
 | OROS-B008 | P1 | `apps/bootstrap/live_ai_actor_lifecycle_demo.cpp` | **Observed:** explicit retirement handles vision/fidelity and visual memory, not all schedule/faction/network/save references; runtime roster not dynamically managed | Identity and provenance retained/cleaned across all owners with replay and storage tests | Open |
+| OROS-B009 | P1 | [Issue #7](https://github.com/drewweske/OROS-1/issues/7), `engine/world/src/world.cpp` | `World::create_entity` called unordered-set `reserve(size+1)` for every new persistent identity, potentially triggering repeated rehashes | New #16 CTest checks 2/100/1000/10000 deterministic IDs, sparse position/destruction, monotonic growth and diagnostic timings; compare old/new elapsed values before numeric claims | **Fix & test authored #16; Windows CI pending**, exact performance delta unverified |
 
-**Evidence baseline:** review #10 and final successful [Build OROS #13 CI](https://github.com/drewweske/OROS-1/actions/runs/39756990576) at `ab2a8af` with 125/125 CTest. **No large-scale allocation or throughput benchmark has been run in #14**; the no-copy-path storage-address regression measures a specific algorithmic property, not frame-rate improvement. Next mandatory whole-engine review: run #20.
+**Evidence baseline:** review #15 and [Build OROS #15 CI](https://github.com/drewweske/OROS-1/actions/runs/39759422965) at `9705e6e` with 125/125 CTest; canonized to `main` merge `31937ea`. The #16 population test prints timings but does not provide controlled old/new performance comparison, so no speedup is asserted. Next mandatory whole-engine review: #20; next canonization: #30.
