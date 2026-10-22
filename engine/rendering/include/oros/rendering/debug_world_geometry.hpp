@@ -24,6 +24,8 @@ namespace oros::rendering
         // first-person player moves. Period is exactly five meters.
         float grid_phase_x{};
         float grid_phase_z{};
+        // Positive yaw points the camera toward World +X.
+        float camera_yaw_radians{};
         std::span<const DebugWorldMarker> markers{};
     };
 

@@ -10,32 +10,32 @@ namespace oros::rendering
 {
     namespace
     {
-        struct Projection final
+        struct CameraPoint final
         {
             float x{};
-            float y{};
+            float vertical{};
+            float depth{};
         };
 
-        // Camera is just behind and above a player facing +Z.
-        // Simple perspective is sufficient for a visible graybox.
-        [[nodiscard]] Projection project(
-            const float x,
-            const float y,
-            const float z,
-            const float aspect) noexcept
+        // Simple camera behind the player, pitched slightly downward.
+        // Transform World-relative points by the input camera yaw.
+        [[nodiscard]] CameraPoint to_camera(
+            const float x, const float y, const float z,
+            const float yaw) noexcept
         {
-            constexpr float sine = 0.17F;
-            constexpr float cosine = 0.985F;
+            constexpr float sine_pitch = 0.17F;
+            constexpr float cosine_pitch = 0.985F;
+            const float sine_yaw = std::sin(yaw);
+            const float cosine_yaw = std::cos(yaw);
+            const float sideways =
+                cosine_yaw * x - sine_yaw * z;
+            const float forward =
+                sine_yaw * x + cosine_yaw * z + 9.0F;
             const float height = y - 2.8F;
-            const float forward = z + 9.0F;
-            const float depth =
-                -sine * height + cosine * forward;
-            const float vertical =
-                cosine * height + sine * forward;
-
             return {
-                1.5F * x / (aspect * depth),
-                1.5F * vertical / depth
+                sideways,
+                cosine_pitch * height + sine_pitch * forward,
+                -sine_pitch * height + cosine_pitch * forward
             };
         }
 
@@ -44,15 +44,48 @@ namespace oros::rendering
             const float x0, const float y0, const float z0,
             const float x1, const float y1, const float z1,
             const float aspect,
+            const float yaw,
             const float red, const float green, const float blue)
         {
-            const Projection a = project(x0, y0, z0, aspect);
-            const Projection b = project(x1, y1, z1, aspect);
+            constexpr float near_depth = 0.5F;
+            CameraPoint a = to_camera(x0, y0, z0, yaw);
+            CameraPoint b = to_camera(x1, y1, z1, yaw);
+
+            if (a.depth < near_depth && b.depth < near_depth)
+            {
+                return;
+            }
+
+            // Clip the crossing segment to the positive near plane.
+            if (a.depth < near_depth || b.depth < near_depth)
+            {
+                const float fraction =
+                    (near_depth - a.depth) / (b.depth - a.depth);
+                const CameraPoint clipped{
+                    a.x + fraction * (b.x - a.x),
+                    a.vertical + fraction *
+                        (b.vertical - a.vertical),
+                    near_depth
+                };
+                if (a.depth < near_depth)
+                {
+                    a = clipped;
+                }
+                else
+                {
+                    b = clipped;
+                }
+            }
+
             vertices.push_back({
-                a.x, a.y, red, green, blue, 1.0F
+                1.5F * a.x / (aspect * a.depth),
+                1.5F * a.vertical / a.depth,
+                red, green, blue, 1.0F
             });
             vertices.push_back({
-                b.x, b.y, red, green, blue, 1.0F
+                1.5F * b.x / (aspect * b.depth),
+                1.5F * b.vertical / b.depth,
+                red, green, blue, 1.0F
             });
         }
     }
@@ -67,6 +100,7 @@ namespace oros::rendering
             aspect_ratio <= 0.0F ||
             !std::isfinite(scene.grid_phase_x) ||
             !std::isfinite(scene.grid_phase_z) ||
+            !std::isfinite(scene.camera_yaw_radians) ||
             scene.grid_phase_x < -5.0F ||
             scene.grid_phase_x > 5.0F ||
             scene.grid_phase_z < -5.0F ||
@@ -114,6 +148,7 @@ namespace oros::rendering
                     offset - scene.grid_phase_x, 0.0F, -4.0F,
                     offset - scene.grid_phase_x, 0.0F, 68.0F,
                     aspect_ratio,
+                    scene.camera_yaw_radians,
                     0.20F, 0.39F, 0.39F);
 
                 line(
@@ -121,6 +156,7 @@ namespace oros::rendering
                     -35.0F, 0.0F, offset - scene.grid_phase_z,
                     35.0F, 0.0F, offset - scene.grid_phase_z,
                     aspect_ratio,
+                    scene.camera_yaw_radians,
                     0.20F, 0.39F, 0.39F);
             }
 
@@ -130,12 +166,14 @@ namespace oros::rendering
                 -0.6F, 0.04F, 0.0F,
                 0.6F, 0.04F, 0.0F,
                 aspect_ratio,
+                scene.camera_yaw_radians,
                 0.20F, 0.95F, 0.95F);
             line(
                 vertices,
                 0.0F, 0.04F, -0.6F,
                 0.0F, 0.04F, 0.6F,
                 aspect_ratio,
+                scene.camera_yaw_radians,
                 0.20F, 0.95F, 0.95F);
 
             // Visible NPCs are simple vertical wireframe posts.
@@ -146,6 +184,7 @@ namespace oros::rendering
                     marker.relative_x, 0.0F, marker.relative_z,
                     marker.relative_x, 2.0F, marker.relative_z,
                     aspect_ratio,
+                    scene.camera_yaw_radians,
                     marker.red, marker.green, marker.blue);
                 line(
                     vertices,
@@ -154,6 +193,7 @@ namespace oros::rendering
                     marker.relative_x + 0.4F, 1.6F,
                     marker.relative_z,
                     aspect_ratio,
+                    scene.camera_yaw_radians,
                     marker.red, marker.green, marker.blue);
                 line(
                     vertices,
@@ -162,6 +202,7 @@ namespace oros::rendering
                     marker.relative_x, 1.6F,
                     marker.relative_z + 0.4F,
                     aspect_ratio,
+                    scene.camera_yaw_radians,
                     marker.red, marker.green, marker.blue);
             }
 

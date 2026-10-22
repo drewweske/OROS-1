@@ -36,8 +36,11 @@ int main()
     check(state, grid.has_value(), "Finite grid geometry builds");
     if (!grid) { return 1; }
 
-    check(state, grid->size() == 64U,
-        "Ground grid and player reference generate 64 line vertices");
+    check(state,
+        grid->size() >= 40U &&
+        grid->size() <= 64U &&
+        grid->size() % 2U == 0U,
+        "Near-clipped ground grid generates bounded line pairs");
     bool finite = true;
     for (const auto& vertex : grid.value())
     {
@@ -60,7 +63,8 @@ int main()
     const auto with_npcs = build_debug_world_lines(
         scene, 16.0F / 9.0F);
     check(state,
-        with_npcs.has_value() && with_npcs->size() == 76U,
+        with_npcs.has_value() &&
+        with_npcs->size() == grid->size() + 12U,
         "Two NPC posts each add three colored line segments");
     if (!with_npcs) { return 1; }
 
@@ -68,7 +72,8 @@ int main()
     check(state,
         repeated.has_value() &&
         repeated->size() == with_npcs->size() &&
-        repeated.value()[64].x == with_npcs.value()[64].x,
+        repeated.value()[grid->size()].x ==
+            with_npcs.value()[grid->size()].x,
         "World projection is deterministic for identical inputs");
 
     DebugWorldScene moved = scene;
@@ -78,6 +83,25 @@ int main()
         shifted.has_value() &&
         shifted.value()[0].x != with_npcs.value()[0].x,
         "Grid visibly shifts with World-relative player motion");
+
+    DebugWorldScene rotated = scene;
+    rotated.camera_yaw_radians = 0.7F;
+    const auto turned = build_debug_world_lines(
+        rotated, 16.0F / 9.0F);
+    check(state,
+        turned.has_value() && !turned->empty() &&
+        turned.value()[0].x != with_npcs.value()[0].x,
+        "Rotating camera turns the visible World grid");
+
+    DebugWorldScene invalid_yaw = scene;
+    invalid_yaw.camera_yaw_radians =
+        (std::numeric_limits<float>::infinity)();
+    const auto rejected_yaw =
+        build_debug_world_lines(invalid_yaw, 1.0F);
+    check(state,
+        !rejected_yaw.has_value() &&
+        rejected_yaw.error().code == ErrorCode::invalid_argument,
+        "Non-finite camera yaw is rejected");
 
     const auto bad_aspect = build_debug_world_lines(empty, 0.0F);
     check(state,
