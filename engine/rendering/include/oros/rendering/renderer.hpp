@@ -1,6 +1,7 @@
 #pragma once
 
 #include "oros/foundation/result.hpp"
+#include "oros/rendering/debug_world_geometry.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -61,6 +62,13 @@ namespace oros::rendering
         [[nodiscard]] foundation::Status
         draw_frame(
             const ClearColor& clear_color);
+
+        // First visible graybox: perspective ground grid and
+        // actor posts, following the authoritative player position.
+        [[nodiscard]] foundation::Status
+        draw_world_frame(
+            const ClearColor& clear_color,
+            const DebugWorldScene& scene);
 
         [[nodiscard]] foundation::Status
         resize(

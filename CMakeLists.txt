@@ -196,6 +196,7 @@ target_link_libraries(
         oros_foundation
     PRIVATE
         d3d12
+        d3dcompiler
         dxgi
         user32
 )

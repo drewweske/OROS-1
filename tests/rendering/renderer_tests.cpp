@@ -1,6 +1,8 @@
 #include "oros/platform/window.hpp"
 #include "oros/rendering/renderer.hpp"
 
+#include <array>
+
 #include <iostream>
 #include <string_view>
 #include <utility>
@@ -274,6 +276,23 @@ int main()
             state,
             second_frame_status.has_value(),
             "Renderer clears and presents another frame");
+
+        const std::array<DebugWorldMarker, 2> npc_markers{{
+            {3.0F, 12.0F, 1.0F, 0.5F, 0.2F},
+            {-4.0F, 8.0F, 0.2F, 0.9F, 0.5F}
+        }};
+        DebugWorldScene debug_world{};
+        debug_world.grid_phase_x = 1.0F;
+        debug_world.markers = npc_markers;
+
+        const Status world_frame_status =
+            renderer.draw_world_frame(
+                first_color, debug_world);
+
+        check(
+            state,
+            world_frame_status.has_value(),
+            "Renderer submits perspective grid and NPC debug geometry");
 
         const Status first_idle_status =
             renderer.wait_idle();
