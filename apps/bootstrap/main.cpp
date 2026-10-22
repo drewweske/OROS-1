@@ -2,6 +2,7 @@
 #include "live_ai_perception_group_demo.hpp"
 #include "live_player_demo.hpp"
 #include "navigation_demo.hpp"
+#include "outpost_layout.hpp"
 
 #include "oros/ai/navigation_obstacle_overlay.hpp"
 #include "oros/ai/navigation_search.hpp"
@@ -2359,9 +2360,10 @@ int main()
                             debug_scene.grid_phase_z = grid_phase(
                                 visual_player->cell().z,
                                 visual_player->local().z);
-                            // Small authored *visual-only* outpost,
-                            // anchored to the player's original World
-                            // spawn rather than to the moving camera.
+                            // Static outpost shares its authored layout
+                            // with the streamed physical-world cell.
+                            // Keep the visible model aligned with
+                            // collision while the player/camera moves.
                             const auto to_outpost =
                                 visual_player->displacement_to(
                                     landmark_spawn_anchor);
@@ -2389,21 +2391,32 @@ int main()
                                 static_cast<float>(
                                     to_outpost.value().z);
 
-                            const std::array<DebugWorldLandmark, 3>
-                                visible_landmarks{{
-                                    {relative_outpost_x - 12.0F,
-                                     relative_outpost_z + 25.0F,
-                                     8.0F, 8.0F, 8.0F,
-                                     1.0F, 0.66F, 0.23F},
-                                    {relative_outpost_x + 12.0F,
-                                     relative_outpost_z + 29.0F,
-                                     10.0F, 7.0F, 6.0F,
-                                     0.69F, 0.44F, 1.0F},
-                                    {relative_outpost_x,
-                                     relative_outpost_z + 47.0F,
-                                     7.0F, 7.0F, 12.0F,
-                                     0.34F, 0.94F, 0.72F}
-                                }};
+                            std::array<
+                                DebugWorldLandmark,
+                                oros::bootstrap::outpost_buildings.size()>
+                                visible_landmarks{};
+
+                            for (std::size_t index = 0U;
+                                 index <
+                                    oros::bootstrap::outpost_buildings.size();
+                                 ++index)
+                            {
+                                const auto& building =
+                                    oros::bootstrap::outpost_buildings[index];
+
+                                visible_landmarks[index] = {
+                                    relative_outpost_x +
+                                        static_cast<float>(building.center_x),
+                                    relative_outpost_z +
+                                        static_cast<float>(building.center_z),
+                                    static_cast<float>(building.width),
+                                    static_cast<float>(building.depth),
+                                    static_cast<float>(building.height),
+                                    building.red,
+                                    building.green,
+                                    building.blue
+                                };
+                            }
 
                             debug_scene.landmarks =
                                 visible_landmarks;

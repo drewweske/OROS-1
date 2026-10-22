@@ -1,4 +1,5 @@
 #include "physical_world_demo.hpp"
+#include "outpost_layout.hpp"
 
 #include "oros/foundation/error.hpp"
 #include "oros/physical_world/world_cell_collider_payload.hpp"
@@ -10,8 +11,8 @@
 #include "oros/streaming/world_cell_snapshot.hpp"
 #include "oros/world/world_position.hpp"
 
-#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <utility>
 #include <vector>
@@ -165,12 +166,61 @@ namespace oros::bootstrap
             world::WorldCell{}
         };
 
-        const std::array<
-            physics::ColliderGeometry,
-            1U>
-            colliders{
-                floor_geometry_result.value()
+        // Authoritative loaded cell geometry: the original floor
+        // plus three nonoverlapping static wall-volume boxes. IDs
+        // reuse the floor/environment World entity with unique slots.
+        // Visual roofs remain decorative above the solid wall boxes.
+        std::vector<physics::ColliderGeometry> colliders{};
+        colliders.reserve(1U + outpost_buildings.size());
+        colliders.push_back(floor_geometry_result.value());
+
+        for (std::size_t index = 0U;
+             index < outpost_buildings.size();
+             ++index)
+        {
+            const OutpostBuildingDescription& building =
+                outpost_buildings[index];
+
+            const auto shape_result =
+                physics::BoxShape::create(
+                    physics::PhysicsVector3{
+                        building.width * 0.5,
+                        building.height * 0.5,
+                        building.depth * 0.5
+                    });
+
+            if (!shape_result.has_value())
+            {
+                return foundation::fail(
+                    shape_result.error().code,
+                    shape_result.error().message);
+            }
+
+            const physics::ColliderId building_collider{
+                floor_entity,
+                first_outpost_collider_slot +
+                    static_cast<std::uint32_t>(index)
             };
+
+            const auto geometry_result =
+                physics::ColliderGeometry::create(
+                    building_collider,
+                    shape_result.value(),
+                    physics::PhysicsVector3{
+                        building.center_x,
+                        building.height * 0.5,
+                        building.center_z
+                    });
+
+            if (!geometry_result.has_value())
+            {
+                return foundation::fail(
+                    geometry_result.error().code,
+                    geometry_result.error().message);
+            }
+
+            colliders.push_back(geometry_result.value());
+        }
 
         foundation::Result<
             physical_world::WorldCellColliderSet>
@@ -304,14 +354,14 @@ namespace oros::bootstrap
             !residency.is_resident() ||
             !registry.is_valid() ||
             registry.active_cell_count() != 1U ||
-            registry.collider_count() != 1U ||
+            registry.collider_count() != colliders.size() ||
             !registry.contains(floor_collider))
         {
             return foundation::fail(
                 foundation::ErrorCode::invalid_state,
                 "Bootstrap physical world did not "
-                "activate exactly one resident floor "
-                "collider.");
+                "activate the resident floor and "
+                "three outpost colliders.");
         }
 
         return PhysicalWorldDemo{

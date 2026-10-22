@@ -1501,6 +1501,28 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_bootstrap_outpost_collision_tests
+        oros.bootstrap.outpost_collision
+        tests/bootstrap/outpost_collision_tests.cpp
+        oros_physical_world
+        oros_physics
+        oros_streaming
+        oros_world
+    )
+
+    target_sources(
+        oros_bootstrap_outpost_collision_tests
+        PRIVATE
+            apps/bootstrap/physical_world_demo.cpp
+    )
+
+    target_include_directories(
+        oros_bootstrap_outpost_collision_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/apps/bootstrap"
+    )
+
+    oros_add_test_target(
         oros_bootstrap_live_ai_perception_group_demo_tests
         oros.bootstrap.live_ai_perception_group_demo
         tests/bootstrap/live_ai_perception_group_demo_tests.cpp

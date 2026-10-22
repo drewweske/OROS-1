@@ -19,12 +19,13 @@ If an unsigned-executable warning appears, verify the artifact is from a success
 - **Left / Right arrow keys:** rotate the camera view
 - **Escape** or window close: quit
 
-The camera follows the World-owned player from behind/above, rotating at a deterministic rate on fixed simulation ticks. The outpost is a **visual-only** landmark at a fixed World spawn-relative coordinate, not yet a collider or saved World entity. This remains a wireframe development scene, **not** a textured terrain level or a free-look shooter camera.
+The camera follows the World-owned player from behind/above, rotating at a deterministic rate on fixed simulation ticks. The outpost has **three static box colliders** in the loaded world cell, aligned with the wall volumes of the visible structures. Roofs are decorative, and the buildings do not yet have independent World entity identities or persistence outside the authored bootstrap. This remains a wireframe development scene, **not** a textured terrain level or a free-look shooter camera.
 
 ## Acceptance checklist
 
 - [ ] Native window opens and shows a perspective grid, two NPC posts and three outpost buildings.
 - [ ] W moves forward, the grid shifts and the distant outpost approaches; A/S/D move relative to the view.
+- [ ] Walk into the front of the tall green tower (the central structure farther from spawn): the player should stop at the wall instead of passing through.
 - [ ] Left/Right rotates the visible camera.
 - [ ] After turning, W moves in the new forward direction.
 - [ ] Console prints NPC perception transitions as you change distance/angle.
