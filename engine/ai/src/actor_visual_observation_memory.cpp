@@ -157,6 +157,66 @@ namespace oros::ai
     }
 
     foundation::Status
+    ActorVisualObservationMemory::replace_canonical(
+        const std::span<const ActorVisualObservation> observations)
+    {
+        // Validate all keys before a single allocation. The sorted
+        // contract is identical to remember(), which stores one
+        // fact per pair in observer/target EntityId order.
+        for (std::size_t i = 0U; i < observations.size(); ++i)
+        {
+            const ActorVisualObservation& current = observations[i];
+            if (!current.is_valid())
+            {
+                return foundation::fail(
+                    foundation::ErrorCode::invalid_argument,
+                    "Canonical memory import requires valid observations.");
+            }
+            if (i > 0U)
+            {
+                const ActorVisualObservation& previous =
+                    observations[i - 1U];
+                const bool next_observer =
+                    previous.observer() < current.observer();
+                const bool same_observer_next_target =
+                    previous.observer() == current.observer() &&
+                    previous.target() < current.target();
+                if (!next_observer &&
+                    !same_observer_next_target)
+                {
+                    return foundation::fail(
+                        foundation::ErrorCode::invalid_argument,
+                        "Canonical memory import requires strictly "
+                        "increasing, unique observer-target pairs.");
+                }
+            }
+        }
+
+        try
+        {
+            // Copy first, then publish via noexcept vector swap.
+            // Failure cannot invalidate existing memory or its spans.
+            std::vector<ActorVisualObservation> replacement{
+                observations.begin(), observations.end()
+            };
+            observations_.swap(replacement);
+            return {};
+        }
+        catch (const std::bad_alloc&)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::out_of_memory,
+                "Canonical memory import could not allocate storage.");
+        }
+        catch (...)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::internal_failure,
+                "Canonical memory import failed unexpectedly.");
+        }
+    }
+
+    foundation::Status
     ActorVisualObservationMemory::forget(
         const world::EntityId observer,
         const world::EntityId target)

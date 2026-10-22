@@ -190,15 +190,16 @@ namespace oros::bootstrap
                         owned.error().message);
                 }
 
-                for (const auto& observation : owned.value())
+                // Combined memory is already sorted and unique.
+                // Bulk replacement validates that contract, copies
+                // each actor's slice once, and publishes atomically.
+                const auto status =
+                    next.replace_canonical(owned.value());
+                if (!status.has_value())
                 {
-                    const auto status = next.remember(observation);
-                    if (!status.has_value())
-                    {
-                        return foundation::fail(
-                            status.error().code,
-                            status.error().message);
-                    }
+                    return foundation::fail(
+                        status.error().code,
+                        status.error().message);
                 }
 
                 staged.push_back(std::move(next));

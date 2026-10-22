@@ -45,9 +45,9 @@ OROS 1 is a Windows-first custom C++23 game engine. Current milestone: **OROS-00
 5. Do not spend user Codex usage. Do not send lengthy copy-paste PowerShell for routine changes.
 6. Never claim to have launched the end-user's native window or to have synchronized their laptop. PR merging needs deliberate review.
 
-## Current handoff — Build OROS #14, October 2026
+## Current handoff — Build OROS #15, October 2026
 - First-party user screenshots confirmed the D3D12 grid renders and turning changes the view on a personal Windows GPU at run #7; later outpost revisions are built and tested in CI, not confirmed by another personal GPU screenshot.
 - The Windows CI pipeline publishes the game executable `Oros1.exe` as the `OROS-1-Windows-Debug` Actions artifact after compilation and CTest pass. The local checkout with old uncommitted work remains **separate**. Read `docs/development/run-oros-on-windows.md` before advising user playtests.
 - Outpost layout source of truth: `apps/bootstrap/outpost_layout.hpp`; three building boxes share an environment/floor EntityId with unique collider shape slots and are loaded in one WorldCell. This is a **bootstrap prototype** with no separate persistent building entities. NPC line-of-sight reads the same authoritative colliders as the player capsule controller.
 - Known architecture risks recorded in `docs/architecture/reviews/2026-10-22-oros-whole-engine-review-10.md`: per-tick AI memory copying, bootstrap `main.cpp` centralization, collider/entity identity coupling, spawn-origin assumptions, streaming platform leakage, missing GPU/Release/stress CI.
-- Next user command **#15** requires a new whole-repository architectural review; compare to review #10. Last fully verified baseline before run #14: `ab2a8af`, Windows/MSVC Debug, **125/125 CTest**. Do not declare run #14 verified until CI succeeds. A live performance benchmark against the old SHA is still pending.
+- Review #15 in `docs/architecture/reviews/2026-10-22-oros-whole-engine-review-15.md` compares the full untruncated Git tree with review #10. Next mandatory review: **#20**. Last verified baseline before #15: `fa6cae0`, Windows/MSVC Debug, **125/125 CTest**. Next user command **#16**; do not claim #15 test verification until its exact commit passes Windows CI. Large-NPC allocation and throughput benchmarks remain unmeasured.

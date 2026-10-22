@@ -49,6 +49,17 @@ namespace oros::ai
             const ActorVisualObservation&
                 observation);
 
+        // Atomically replace memory from already-canonical,
+        // strictly increasing (observer,target) facts. Validates the
+        // entire input before allocating or mutating live memory.
+        // This is a bulk import, not a merge: callers must stage
+        // complete replacement state. Borrowed spans are invalidated
+        // on success.
+        [[nodiscard]]
+        foundation::Status
+        replace_canonical(
+            std::span<const ActorVisualObservation> observations);
+
         [[nodiscard]]
         foundation::Status
         forget(

@@ -6,9 +6,11 @@
 #include "oros/world/world_position.hpp"
 #include "oros/world/world_time.hpp"
 
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <limits>
+#include <span>
 #include <string_view>
 
 namespace
@@ -673,6 +675,64 @@ int main()
             canonical[2].target() ==
                 second_target,
         "Memory canonical order is observer then target EntityId");
+
+    // Bulk import handles an already-canonical observation batch.
+    // Replacing one actor's memory is transactionally prepared for
+    // the bootstrap adapter without repeated per-fact insertion.
+    ActorVisualObservationMemory bulk{};
+    const auto bulk_status = bulk.replace_canonical(canonical);
+    check(
+        state,
+        bulk_status.has_value() &&
+            bulk.size() == canonical.size() &&
+            bulk.contains(earlier_observer, third_target) &&
+            bulk.contains(observer, target) &&
+            bulk.contains(observer, second_target),
+        "Canonical bulk import retains exact observer-target facts");
+
+    const std::array<ActorVisualObservation, 3U> reordered{{
+        canonical[1], canonical[0], canonical[2]
+    }};
+    const auto rejected_order = bulk.replace_canonical(reordered);
+    check(
+        state,
+        !rejected_order.has_value() &&
+            rejected_order.error().code == ErrorCode::invalid_argument &&
+            bulk.size() == 3U &&
+            bulk.contains(observer, second_target),
+        "Out-of-order bulk import cannot damage prior memory");
+
+    const std::array<ActorVisualObservation, 2U> repeated_key{{
+        canonical[0], canonical[0]
+    }};
+    const auto rejected_duplicate =
+        bulk.replace_canonical(repeated_key);
+    check(
+        state,
+        !rejected_duplicate.has_value() &&
+            rejected_duplicate.error().code ==
+                ErrorCode::invalid_argument &&
+            bulk.size() == 3U &&
+            bulk.contains(earlier_observer, third_target),
+        "Duplicate observer-target bulk import fails atomically");
+
+    const auto alias_import =
+        bulk.replace_canonical(
+            bulk.observations_in_canonical_order());
+    check(
+        state,
+        alias_import.has_value() &&
+            bulk.size() == 3U &&
+            bulk.contains(observer, target),
+        "Bulk import safely supports a borrowed view of its old storage");
+
+    const auto empty_import =
+        bulk.replace_canonical(
+            std::span<const ActorVisualObservation>{});
+    check(
+        state,
+        empty_import.has_value() && bulk.empty(),
+        "Empty canonical import clears memory deterministically");
 
     const auto observer_range_result =
         memory.observations_for_observer(
