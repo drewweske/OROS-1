@@ -56,3 +56,11 @@ jobs:
         run: |
           ctest --test-dir build -C Debug --output-on-failure --no-tests=error
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package Windows playtest executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: OROS-1-Windows-Debug
+          path: build/bin/Debug/Oros1.exe
+          if-no-files-found: error
+          retention-days: 14

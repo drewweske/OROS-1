@@ -1693,6 +1693,10 @@ int main()
                             << "Close the window or press "
                             << "Escape to exit.\n";
 
+                        std::cout
+                            << "WASD: move with camera; "
+                            << "Left/Right arrows: turn view.\n";
+
                         const auto startup_microseconds =
                             std::chrono::duration_cast<
                                 std::chrono::microseconds>(
@@ -1706,6 +1710,9 @@ int main()
                                 std::to_string(
                                     startup_microseconds) +
                                 " microseconds.");
+
+                        // Camera yaw is advanced on fixed simulation ticks.
+                        double debug_camera_yaw = 0.0;
 
                         const ClearColor first_light_color{
                             0.015F,
@@ -1824,16 +1831,15 @@ int main()
                                 movement_z -= 1.0;
                             }
 
-                            const oros::physical_world::
-                                WorldFirstPersonControllerCommand
-                                movement_command{
-                                    oros::physics::
-                                        PhysicsVector3{
-                                            movement_x,
-                                            0.0,
-                                            movement_z
-                                        }
-                                };
+                            double turn_direction = 0.0;
+                            if (input.key_down(Key::right))
+                            {
+                                turn_direction += 1.0;
+                            }
+                            if (input.key_down(Key::left))
+                            {
+                                turn_direction -= 1.0;
+                            }
 
                             Result<RuntimeFrame> frame_result =
                                 runtime.begin_frame(
@@ -1901,6 +1907,37 @@ int main()
                                         simulation_update_count;
                                 ++simulation_update_index)
                             {
+                                // Turn and move in World space based
+                                // on the camera's fixed-tick orientation.
+                                constexpr double pi =
+                                    3.14159265358979323846;
+                                constexpr double turn_speed = 1.5;
+                                const double seconds =
+                                    std::chrono::duration<double>(
+                                        simulation_step).count();
+                                debug_camera_yaw = std::remainder(
+                                    debug_camera_yaw +
+                                        turn_direction * turn_speed *
+                                            seconds,
+                                    2.0 * pi);
+
+                                const double yaw_sine =
+                                    std::sin(debug_camera_yaw);
+                                const double yaw_cosine =
+                                    std::cos(debug_camera_yaw);
+
+                                const oros::physical_world::
+                                    WorldFirstPersonControllerCommand
+                                    movement_command{
+                                        oros::physics::PhysicsVector3{
+                                            movement_x * yaw_cosine +
+                                                movement_z * yaw_sine,
+                                            0.0,
+                                            -movement_x * yaw_sine +
+                                                movement_z * yaw_cosine
+                                        }
+                                    };
+
                                 const Status
                                     live_player_step_status =
                                         oros::bootstrap::
@@ -2316,6 +2353,8 @@ int main()
                                 visual_player->cell().z,
                                 visual_player->local().z);
                             debug_scene.markers = visual_npcs;
+                            debug_scene.camera_yaw_radians =
+                                static_cast<float>(debug_camera_yaw);
 
                             const Status frame_status =
                                 renderer.draw_world_frame(
