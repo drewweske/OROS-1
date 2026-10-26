@@ -454,6 +454,10 @@ int main()
             !generator.is_exhausted(),
             "New generator is not exhausted");
 
+        check(state,
+            generator.last_issued_sequence() == 0ULL,
+            "New generator reports no issued sequences");
+
         const Result<EntityId> first_result =
             generator.generate();
 
@@ -471,6 +475,10 @@ int main()
                         1ULL
                     },
             "Generator begins with the default sequence");
+
+        check(state,
+            generator.last_issued_sequence() == 1ULL,
+            "Generator reports first issued watermark");
 
         const Result<EntityId> second_result =
             generator.generate();

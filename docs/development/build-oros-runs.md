@@ -27,10 +27,11 @@ This file makes the ChatGPT-only development cadence verifiable across sessions.
 | 17 | 2026-10-22 | `b527655` -> `eb73508` | All-distant NPC fast path with strict World/request validation; Windows/MSVC 126/126 CTest passed | Not due |
 | 18 | 2026-10-22 | `eb73508` -> `4c9cf35` | Canonical owned NPC memory batching, invariant tests; exact-SHA Windows CI 126/126 passed | Not due |
 | 19 | 2026-10-26 | `4c9cf35` -> `0c17fcf` | Restore existing World entity IDs using authoritative issued-sequence watermark; duplicate/foreign/malformed/overflow rejection, 127th CTest; **exact-SHA Windows 2022/MSVC Debug 127/127 passed**, source inventory 367 files/241 translation units, zero CMake gaps ([PR CI](https://github.com/drewweske/OROS-1/actions/runs/40298447657), [push CI](https://github.com/drewweske/OROS-1/actions/runs/40298439151)). No interactive GPU/Release/large-population benchmark | Not due |
+| 20 | 2026-10-26 | `f332bdd` -> checkpoint commit | Mandatory whole-source architecture review compared to #15, World/EntityIdGenerator issued-sequence high-water readout, save/restart and overflow regression; exact-SHA Windows/MSVC CI in PR #9 | **Mandatory review committed** |
 
-**Latest user command:** #19  
-**Next command:** #20  
-**Next required five-run audit:** **#20**  
+**Latest user command:** #20  
+**Next command:** #21  
+**Next required five-run audit:** **#25**  
 **Next official mainline canonization evaluation:** **#30** (after exact-SHA verification and deliberate review).
 
 When a new "Build OROS" request arrives, read this ledger before choosing work, advance the count once when the run is recorded, and do not skip the review at multiples of five. If no code change was possible, still report that execution was blocked instead of inventing a completed run.

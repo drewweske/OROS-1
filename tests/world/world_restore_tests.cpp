@@ -38,6 +38,8 @@ int main()
     check(c, r.has_value(), "Unsorted IDs restore with historical watermark");
     if (!r.has_value()) return 1;
     World w{std::move(r.value())};
+    check(c, w.last_issued_sequence() == 12ULL,
+        "Restored World retains global issued watermark");
     check(c, w.entity_count() == 3U &&
         w.contains(saved[0]) && w.contains(saved[1]) &&
         w.contains(saved[2]), "Exact World identity restored");
@@ -58,11 +60,60 @@ int main()
     check(c, created.has_value() &&
         created.value() == EntityId{ns, 13ULL},
         "New IDs skip missing previously issued identities");
+    check(c, w.last_issued_sequence() == 13ULL,
+        "World watermark increments after restore and issuance");
     const auto deleted = w.destroy_entity(saved[2]);
     const auto later = w.create_entity();
     check(c, deleted.has_value() && !w.contains(saved[2]) &&
         later.has_value() && later.value() == EntityId{ns, 14ULL},
         "Destroy after restoration does not recycle IDs");
+
+    check(c, w.last_issued_sequence() == 14ULL,
+        "Deleting another identity never lowers issued watermark");
+
+    // Simulated save/restart records the high-water mark from World
+    // itself: max(live IDs) is NOT correct after retiring the last ID.
+    auto fresh = World::create(ns + 2ULL);
+    check(c, fresh.has_value(), "Fresh World created for round-trip");
+    if (fresh.has_value())
+    {
+        World live{std::move(fresh.value())};
+        check(c, live.last_issued_sequence() == 0ULL,
+            "Fresh World watermark is zero");
+        const auto one = live.create_entity();
+        const auto two = live.create_entity();
+        const auto three = live.create_entity();
+        check(c, one.has_value() && two.has_value() &&
+            three.has_value() && live.last_issued_sequence() == 3ULL,
+            "Issuing identities records global sequence three");
+        if (one.has_value() && two.has_value() && three.has_value())
+        {
+            const auto retired = live.destroy_entity(three.value());
+            check(c, retired.has_value() &&
+                live.last_issued_sequence() == 3ULL &&
+                live.entity_count() == 2U,
+                "Retiring newest identity does not rewind watermark");
+            const std::array<EntityId, 2U> survivors{{
+                one.value(), two.value()
+            }};
+            auto reloaded = World::restore(
+                live.world_namespace(),
+                live.last_issued_sequence(),
+                survivors);
+            check(c, reloaded.has_value(),
+                "Authoritative issued watermark restores successfully");
+            if (reloaded.has_value())
+            {
+                World after_restart{std::move(reloaded.value())};
+                const auto next = after_restart.create_entity();
+                check(c, next.has_value() &&
+                    next.value() == EntityId{ns + 2ULL, 4ULL} &&
+                    !after_restart.contains(three.value()) &&
+                    after_restart.last_issued_sequence() == 4ULL,
+                    "Restart never reissues highest retired identity");
+            }
+        }
+    }
 
     const std::array<EntityId, 2U> duplicate{{
         {ns, 5ULL}, {ns, 5ULL}
@@ -138,6 +189,16 @@ int main()
             overflow.error().code == ErrorCode::invalid_state,
             "Final available ID is generated only once");
     }
+    if (exhausted.has_value())
+    {
+        // Move above has consumed the returned World; inspect generator
+        // exhaustion via an independent reconstruction instead.
+        auto again = World::restore(ns, max, last);
+        check(c, again.has_value() &&
+            again->last_issued_sequence() == max,
+            "Maximum issued watermark never wraps to zero");
+    }
+
     std::cout << "World restore " << c.total - c.failed
               << '/' << c.total << " checks passed\n";
     return c.failed == 0 ? 0 : 1;

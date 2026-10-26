@@ -318,6 +318,21 @@ namespace oros::world
         return world_namespace_;
     }
 
+    std::uint64_t
+    EntityIdGenerator::last_issued_sequence()
+        const noexcept
+    {
+        if (exhausted_)
+        {
+            return (std::numeric_limits<
+                std::uint64_t>::max)();
+        }
+
+        // next_sequence_ is never zero; a fresh generator at 1
+        // has not issued an ID, so its watermark is zero.
+        return next_sequence_ - 1ULL;
+    }
+
     bool
     EntityIdGenerator::is_exhausted()
         const noexcept

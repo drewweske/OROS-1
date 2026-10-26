@@ -71,6 +71,12 @@ namespace oros::world
         [[nodiscard]] std::uint64_t
         world_namespace() const noexcept;
 
+        // Global issued-ID high-water mark. Includes previously
+        // destroyed, nonresident and failed-insertion identities.
+        // Persist alongside World state; never infer from live IDs.
+        [[nodiscard]] std::uint64_t
+        last_issued_sequence() const noexcept;
+
         [[nodiscard]] bool
         is_exhausted() const noexcept;
 

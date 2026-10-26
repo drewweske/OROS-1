@@ -60,3 +60,8 @@ OROS 1 is a Windows-first custom C++23 game engine. Current milestone: **OROS-00
 - World can reconstruct live EntityIds from a trusted saved global issued-sequence high-water mark, with non-reuse across deleted/unloaded gaps and UINT64_MAX exhaustion. This is **not** a fully persisted World object/actor graph or disk-save integration; caller still reattaches components and supplies trustworthy global high-water mark.
 - Observed LOS scaling hypothesis: `WorldCellColliderRegistry::colliders_relative_to()` reconstructs geometries from every resident cell. Needs bounded workloads, measured before/after data and blocked/clear/unavailable regression before spatial optimization.
 - Build run ledger now #19. Next **#20** requires mandatory fifth-run architectural review. Official `main` stays `31937ead`; draft PR #9 stays unmerged. Do not overwrite user's local checkout.
+
+## Latest handoff — Build OROS #20 (2026-10-26)
+- Mandatory whole-repository architecture report is at `docs/architecture/reviews/2026-10-26-oros-whole-engine-review-20.md`, comparing untruncated `9705e6e` (#15 post-run) with `f332bdd` (#19 pre-run). Review source inventory is mechanical; critical risks were checked against selected implementation and tests, not a formal security audit.
+- Added `EntityIdGenerator::last_issued_sequence()` and `World::last_issued_sequence()` plus restart/retired-highest-ID tests. World object save/restart remains a future transactional persistence integration; do not treat readout as a completed save system.
+- Ledger #20, next Build #21, next mandatory whole-engine review #25, next canonization decision #30. Check exact current HEAD Windows/MSVC CTest; draft PR #9 is not merged; official `main` stays on #15.

@@ -290,6 +290,12 @@ namespace oros::world
     }
 
     std::uint64_t
+    World::last_issued_sequence() const noexcept
+    {
+        return id_generator_.last_issued_sequence();
+    }
+
+    std::uint64_t
     World::world_namespace() const noexcept
     {
         return id_generator_.world_namespace();

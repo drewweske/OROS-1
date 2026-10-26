@@ -83,6 +83,11 @@ namespace oros::world
         [[nodiscard]] std::uint64_t
         world_namespace() const noexcept;
 
+        // Issued-ID watermark for eventual transactional snapshots.
+        // It is independent of live entity and resident position sets.
+        [[nodiscard]] std::uint64_t
+        last_issued_sequence() const noexcept;
+
     private:
         explicit World(
             EntityIdGenerator id_generator) noexcept;
