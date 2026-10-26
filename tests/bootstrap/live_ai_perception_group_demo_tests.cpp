@@ -391,6 +391,132 @@ int main()
         second.visual_memory.size() == 1U,
         "64 distant multi-NPC ticks retain exact memory storage and facts");
 
+    // The all-distant fast path must reject invalid requests before
+    // returning its empty report, just as the reusable tick does.
+    const auto absent_distant = observe_live_ai_actor_group(
+        world, colliders, actors, absent_target,
+        WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        !absent_distant &&
+        absent_distant.error().code == ErrorCode::invalid_state &&
+        first.visual_memory.size() == 1U &&
+        second.visual_memory.size() == 1U,
+        "All-distant fast path rejects missing World target");
+
+    const std::array<EntityId, 2U> duplicate_targets{
+        target.value(), target.value()
+    };
+    const auto repeated_target_distant = observe_live_ai_actor_group(
+        world, colliders, actors, duplicate_targets,
+        WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        !repeated_target_distant &&
+        repeated_target_distant.error().code ==
+            ErrorCode::invalid_argument &&
+        first.visual_memory.size() == 1U,
+        "All-distant fast path rejects duplicate observer-target pairs");
+
+    const std::array<EntityId, 1U> self_target{
+        first.actor
+    };
+    const auto self_distant = observe_live_ai_actor_group(
+        world, colliders, actors, self_target,
+        WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        !self_distant &&
+        self_distant.error().code == ErrorCode::invalid_argument,
+        "All-distant fast path rejects self-observation");
+
+    const auto unpositioned_target = world.create_entity();
+    if (!unpositioned_target.has_value())
+    {
+        return 1;
+    }
+    const std::array<EntityId, 1U> no_position{
+        unpositioned_target.value()
+    };
+    const auto missing_position_distant =
+        observe_live_ai_actor_group(
+            world, colliders, actors, no_position,
+            WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        !missing_position_distant &&
+        missing_position_distant.error().code ==
+            ErrorCode::invalid_state &&
+        second.visual_memory.size() == 1U,
+        "All-distant fast path rejects a World entity without position");
+
+    const std::array<EntityId, 0U> no_targets{};
+    const auto empty_distant = observe_live_ai_actor_group(
+        world, colliders, actors, no_targets,
+        WorldTime::from_microseconds_since_epoch(8'000'000ULL));
+    check(checks,
+        empty_distant &&
+        empty_distant->skipped_distant_pairs == 0U &&
+        empty_distant->observations.empty() &&
+        !empty_distant->visual_memory_staged,
+        "All-distant empty request set returns an empty successful report");
+
+    // One actor can remember multiple targets. Mixed fidelity
+    // still rebuilds the combined memory transactionally, without
+    // duplicating or losing unrelated historical facts.
+    const auto other_target = world.create_entity();
+    if (!other_target.has_value())
+    {
+        return 1;
+    }
+    const WorldPosition* const existing_position =
+        world.find_position(target.value());
+    if (existing_position == nullptr)
+    {
+        return 1;
+    }
+    // Copy by value before the component store grows: insertion may
+    // invalidate borrowed pointers into World position storage.
+    const WorldPosition stable_target_position{*existing_position};
+    if (!world.add_position(
+            other_target.value(), stable_target_position).has_value())
+    {
+        return 1;
+    }
+    const auto historical_first =
+        ActorVisualObservation::create(
+            first.actor, other_target.value(),
+            *world.find_position(other_target.value()),
+            WorldTime::from_microseconds_since_epoch(2'500'000ULL),
+            first.vision_state->confidence());
+    const auto historical_second =
+        ActorVisualObservation::create(
+            second.actor, other_target.value(),
+            *world.find_position(other_target.value()),
+            WorldTime::from_microseconds_since_epoch(2'600'000ULL),
+            second.vision_state->confidence());
+    if (!historical_first || !historical_second ||
+        !first.visual_memory.remember(historical_first.value()) ||
+        !second.visual_memory.remember(historical_second.value()))
+    {
+        return 1;
+    }
+
+    const auto local_first = first.fidelity_registry.transition(
+        first.actor, ActorSimulationFidelity::deep_local);
+    const auto mixed_tick = observe_live_ai_actor_group(
+        world, colliders, actors, targets,
+        WorldTime::from_microseconds_since_epoch(9'000'000ULL));
+    check(checks,
+        local_first.has_value() &&
+        mixed_tick.has_value() &&
+        mixed_tick->skipped_distant_pairs == 1U &&
+        mixed_tick->observations.size() == 1U &&
+        mixed_tick->visual_memory_staged &&
+        first.visual_memory.size() == 2U &&
+        second.visual_memory.size() == 2U &&
+        first.visual_memory.contains(first.actor, other_target.value()) &&
+        second.visual_memory.contains(second.actor, other_target.value()) &&
+        first.visual_memory.contains(first.actor, target.value()) &&
+        second.visual_memory.contains(second.actor, target.value()),
+        "Mixed-fidelity batch retains multiple independent canonical facts");
+
     std::cout << "\nLive actor group: "
               << checks.count - checks.failed << "/"
               << checks.count << " checks passed\n";

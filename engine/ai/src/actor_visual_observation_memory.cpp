@@ -41,6 +41,41 @@ namespace oros::ai
                 observation.target() ==
                     target;
         }
+        [[nodiscard]]
+        foundation::Status validate_canonical_observations(
+            const std::span<const ActorVisualObservation> observations)
+        {
+            for (std::size_t i = 0U; i < observations.size(); ++i)
+            {
+                const ActorVisualObservation& current = observations[i];
+                if (!current.is_valid())
+                {
+                    return foundation::fail(
+                        foundation::ErrorCode::invalid_argument,
+                        "Canonical memory import requires valid observations.");
+                }
+
+                if (i > 0U)
+                {
+                    const ActorVisualObservation& previous =
+                        observations[i - 1U];
+                    const bool next_observer =
+                        previous.observer() < current.observer();
+                    const bool same_observer_next_target =
+                        previous.observer() == current.observer() &&
+                        previous.target() < current.target();
+                    if (!next_observer && !same_observer_next_target)
+                    {
+                        return foundation::fail(
+                            foundation::ErrorCode::invalid_argument,
+                            "Canonical memory import requires strictly "
+                            "increasing, unique observer-target pairs.");
+                    }
+                }
+            }
+            return {};
+        }
+
     }
 
     foundation::Status
@@ -160,36 +195,13 @@ namespace oros::ai
     ActorVisualObservationMemory::replace_canonical(
         const std::span<const ActorVisualObservation> observations)
     {
-        // Validate all keys before a single allocation. The sorted
-        // contract is identical to remember(), which stores one
-        // fact per pair in observer/target EntityId order.
-        for (std::size_t i = 0U; i < observations.size(); ++i)
+        // Validate before allocating; self-aliasing inputs remain safe
+        // because copying completes before publishing the replacement.
+        const foundation::Status valid =
+            validate_canonical_observations(observations);
+        if (!valid.has_value())
         {
-            const ActorVisualObservation& current = observations[i];
-            if (!current.is_valid())
-            {
-                return foundation::fail(
-                    foundation::ErrorCode::invalid_argument,
-                    "Canonical memory import requires valid observations.");
-            }
-            if (i > 0U)
-            {
-                const ActorVisualObservation& previous =
-                    observations[i - 1U];
-                const bool next_observer =
-                    previous.observer() < current.observer();
-                const bool same_observer_next_target =
-                    previous.observer() == current.observer() &&
-                    previous.target() < current.target();
-                if (!next_observer &&
-                    !same_observer_next_target)
-                {
-                    return foundation::fail(
-                        foundation::ErrorCode::invalid_argument,
-                        "Canonical memory import requires strictly "
-                        "increasing, unique observer-target pairs.");
-                }
-            }
+            return valid;
         }
 
         try
@@ -214,6 +226,24 @@ namespace oros::ai
                 foundation::ErrorCode::internal_failure,
                 "Canonical memory import failed unexpectedly.");
         }
+    }
+
+    foundation::Status
+    ActorVisualObservationMemory::replace_canonical_owned(
+        std::vector<ActorVisualObservation>&& observations)
+    {
+        const foundation::Status valid =
+            validate_canonical_observations(observations);
+        if (!valid.has_value())
+        {
+            return valid;
+        }
+
+        // Vector swap is noexcept and transfers the exact incoming
+        // allocation. Only the already-prepared vector is mutated
+        // during the commit; prior facts survive every validation error.
+        observations_.swap(observations);
+        return {};
     }
 
     foundation::Status

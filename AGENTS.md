@@ -6,8 +6,10 @@ OROS 1 is a Windows-first custom C++23 game engine. Current milestone: **OROS-00
 ## Branch discipline
 - Repository: drewweske/OROS-1.
 - Verified pre-automation integration branch: `feature/oros-009-living-world` at `c9a95a9`.
-- Working branch: `automation/oros-009-chat-build`; never overwrite or force-push the integration branch.
-- Inspect branch head and unmerged changes before each increment. Prefer small commits and a draft PR for review. Do not auto-merge.
+- Official canonical branch: `main`; builds **#1–15 merged** by owner-authorized PR #8 at merge SHA `31937ead` on 2026-10-22, preserving full history. Pre-merge SHA `9705e6e` passed Windows/MSVC and 125/125 CTest.
+- Current development branch for Build #16 onward: `automation/oros-016-world-growth`, branched from official `main`. Old `automation/oros-009-chat-build` and `feature/oros-009-living-world` remain historic; never force-push or rewrite them.
+- Make reviewable development commits/PRs. **Canonize every 15 Build OROS invocations (#15, #30, #45, …)** only after explicit code/architecture review, clean mergeability and passing exact-SHA Windows CI. The user explicitly authorized this recurring mainline merge policy on 2026-10-22. Do not bypass required checks, override conflicts, force-push or merge a failing branch. If blocked, report the gate instead.
+- A recurring policy does **not** start background agents; evaluate/merge when the corresponding Build OROS request is invoked.
 - The user's local laptop checkout does not update automatically when GitHub advances.
 - Reconcile any locally uncommitted changes before merging back; never assume they are on GitHub.
 
@@ -32,7 +34,7 @@ OROS 1 is a Windows-first custom C++23 game engine. Current milestone: **OROS-00
 - The phrase **"Build OROS"** in a user turn counts as one invocation, even when followed by other instructions. Count exactly once per requested development run, not per assistant tool call, commit, CI retry, or partial response.
 - Track invocation numbers in `docs/development/build-oros-runs.md` and update the record in every completed run.
 - **Every fifth invocation (5, 10, 15, ...)** perform a new full-repository structural inventory, module-by-module architecture review, critical-source and test review, CI status analysis, risks, findings and prioritized remediation plan; commit a dated report to `docs/architecture/reviews/`.
-- Architecture review reports are committed at user runs #5 and #10 (2026-10-22); next mandatory report is at **#15**. Run #2 established an extra baseline review. Prior reports live in `docs/architecture/reviews/`.
+- Mandatory architecture reports have been committed for #5, #10 and #15; **next architecture review is #20**, independent of the next mainline canonization at #30. Run #2 was an extra baseline review. Reports live in `docs/architecture/reviews/`.
 - A source inventory generated on every CI run is mechanical coverage, not a substitute for the fifth-run architectural reasoning review.
 - If a request explicitly calls for an extra audit, do it regardless of command number.
 - Never claim that a structural inventory is a line-by-line formal security audit. Report sampling limits and what could not be run.
@@ -45,9 +47,21 @@ OROS 1 is a Windows-first custom C++23 game engine. Current milestone: **OROS-00
 5. Do not spend user Codex usage. Do not send lengthy copy-paste PowerShell for routine changes.
 6. Never claim to have launched the end-user's native window or to have synchronized their laptop. PR merging needs deliberate review.
 
-## Current handoff — Build OROS #15, October 2026
+## Current handoff — Build OROS #16, October 2026
 - First-party user screenshots confirmed the D3D12 grid renders and turning changes the view on a personal Windows GPU at run #7; later outpost revisions are built and tested in CI, not confirmed by another personal GPU screenshot.
 - The Windows CI pipeline publishes the game executable `Oros1.exe` as the `OROS-1-Windows-Debug` Actions artifact after compilation and CTest pass. The local checkout with old uncommitted work remains **separate**. Read `docs/development/run-oros-on-windows.md` before advising user playtests.
 - Outpost layout source of truth: `apps/bootstrap/outpost_layout.hpp`; three building boxes share an environment/floor EntityId with unique collider shape slots and are loaded in one WorldCell. This is a **bootstrap prototype** with no separate persistent building entities. NPC line-of-sight reads the same authoritative colliders as the player capsule controller.
 - Known architecture risks recorded in `docs/architecture/reviews/2026-10-22-oros-whole-engine-review-10.md`: per-tick AI memory copying, bootstrap `main.cpp` centralization, collider/entity identity coupling, spawn-origin assumptions, streaming platform leakage, missing GPU/Release/stress CI.
-- Review #15 in `docs/architecture/reviews/2026-10-22-oros-whole-engine-review-15.md` compares the full untruncated Git tree with review #10. Next mandatory review: **#20**. Last verified baseline before #15: `fa6cae0`, Windows/MSVC Debug, **125/125 CTest**. Next user command **#16**; do not claim #15 test verification until its exact commit passes Windows CI. Large-NPC allocation and throughput benchmarks remain unmeasured.
+- Review #15 is in `docs/architecture/reviews/2026-10-22-oros-whole-engine-review-15.md`. The tested #15 head `9705e6e` passed both Windows CI runs, 125/125 CTest, then merged to `main` in PR #8. Next mandatory review **#20**, next mainline canonization **#30**.
+- Build #16 changes World entity-growth policy and adds diagnostics for populations 2/100/1000/10000. No timing win is claimed absent comparable old/new results. Next command **#17** after this run completes. The user's laptop checkout remains separate.
+
+## Latest handoff — Build OROS #19 (2026-10-26)
+- Development branch `automation/oros-016-world-growth`: #19 source/test SHA `0c17fcf5310b6deaf1835612f59f97a1ca7cbbed` passed [push CI](https://github.com/drewweske/OROS-1/actions/runs/40298439151) and [PR CI](https://github.com/drewweske/OROS-1/actions/runs/40298447657), Windows 2022/MSVC Debug **127/127 CTest**; inspect newer HEAD before claiming it remains latest.
+- World can reconstruct live EntityIds from a trusted saved global issued-sequence high-water mark, with non-reuse across deleted/unloaded gaps and UINT64_MAX exhaustion. This is **not** a fully persisted World object/actor graph or disk-save integration; caller still reattaches components and supplies trustworthy global high-water mark.
+- Observed LOS scaling hypothesis: `WorldCellColliderRegistry::colliders_relative_to()` reconstructs geometries from every resident cell. Needs bounded workloads, measured before/after data and blocked/clear/unavailable regression before spatial optimization.
+- Build run ledger now #19. Next **#20** requires mandatory fifth-run architectural review. Official `main` stays `31937ead`; draft PR #9 stays unmerged. Do not overwrite user's local checkout.
+
+## Latest handoff — Build OROS #20 (2026-10-26)
+- Mandatory whole-repository architecture report is at `docs/architecture/reviews/2026-10-26-oros-whole-engine-review-20.md`, comparing untruncated `9705e6e` (#15 post-run) with `f332bdd` (#19 pre-run). Review source inventory is mechanical; critical risks were checked against selected implementation and tests, not a formal security audit.
+- Added `EntityIdGenerator::last_issued_sequence()` and `World::last_issued_sequence()` plus restart/retired-highest-ID tests. World object save/restart remains a future transactional persistence integration; do not treat readout as a completed save system.
+- Ledger #20, next Build #21, next mandatory whole-engine review #25, next canonization decision #30. Check exact current HEAD Windows/MSVC CTest; draft PR #9 is not merged; official `main` stays on #15.

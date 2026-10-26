@@ -249,6 +249,29 @@ namespace oros::world
         };
     }
 
+    foundation::Result<EntityIdGenerator>
+    EntityIdGenerator::resume(
+        const std::uint64_t world_namespace,
+        const std::uint64_t last_issued_sequence)
+    {
+        const std::uint64_t maximum =
+            (std::numeric_limits<std::uint64_t>::max)();
+        auto result = create(
+            world_namespace,
+            last_issued_sequence == maximum
+                ? maximum
+                : last_issued_sequence + 1ULL);
+        if (!result.has_value())
+        {
+            return result;
+        }
+        if (last_issued_sequence == maximum)
+        {
+            result->exhausted_ = true;
+        }
+        return result;
+    }
+
     EntityIdGenerator::EntityIdGenerator(
         const std::uint64_t world_namespace,
         const std::uint64_t first_sequence) noexcept
@@ -293,6 +316,21 @@ namespace oros::world
         const noexcept
     {
         return world_namespace_;
+    }
+
+    std::uint64_t
+    EntityIdGenerator::last_issued_sequence()
+        const noexcept
+    {
+        if (exhausted_)
+        {
+            return (std::numeric_limits<
+                std::uint64_t>::max)();
+        }
+
+        // next_sequence_ is never zero; a fresh generator at 1
+        // has not issued an ID, so its watermark is zero.
+        return next_sequence_ - 1ULL;
     }
 
     bool
