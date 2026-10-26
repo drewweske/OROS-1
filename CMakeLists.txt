@@ -737,6 +737,13 @@ if(BUILD_TESTING)
     )
 
     oros_add_test_target(
+        oros_world_restore_tests
+        oros.world.restore
+        tests/world/world_restore_tests.cpp
+        oros_world
+    )
+
+    oros_add_test_target(
         oros_physics_vector_tests
         oros.physics.vector
         tests/physics/physics_vector_tests.cpp

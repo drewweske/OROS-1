@@ -26,6 +26,60 @@ namespace oros::world
         };
     }
 
+    foundation::Result<World>
+    World::restore(
+        const std::uint64_t world_namespace,
+        const std::uint64_t last_issued_sequence,
+        const std::span<const EntityId> live_entities)
+    {
+        auto generator = EntityIdGenerator::resume(
+            world_namespace, last_issued_sequence);
+        if (!generator.has_value())
+        {
+            return foundation::fail(
+                generator.error().code, generator.error().message);
+        }
+        World restored{std::move(generator.value())};
+        try
+        {
+            for (const EntityId entity : live_entities)
+            {
+                if (!entity.is_valid() ||
+                    entity.world_namespace != world_namespace ||
+                    entity.entity_sequence > last_issued_sequence)
+                {
+                    return foundation::fail(
+                        foundation::ErrorCode::invalid_argument,
+                        "Restored identity is invalid, foreign, or "
+                        "newer than the persisted high-water mark.");
+                }
+                const auto [iterator, inserted] =
+                    restored.entities_.insert(entity);
+                static_cast<void>(iterator);
+                if (!inserted)
+                {
+                    return foundation::fail(
+                        foundation::ErrorCode::invalid_argument,
+                        "Restored identities contain a duplicate.");
+                }
+            }
+        }
+        catch (const std::bad_alloc&)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::out_of_memory,
+                "Unable to allocate restored World identities.");
+        }
+        catch (...)
+        {
+            return foundation::fail(
+                foundation::ErrorCode::internal_failure,
+                "Unexpected World identity restoration failure.");
+        }
+        // The incomplete local World is never published on error.
+        return restored;
+    }
+
     World::World(
         EntityIdGenerator id_generator) noexcept
         : id_generator_{

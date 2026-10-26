@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <unordered_set>
 
 namespace oros::world
@@ -18,6 +19,15 @@ namespace oros::world
         foundation::Result<World>
         create(
             std::uint64_t world_namespace);
+
+        // Restore a live identity set from an authoritative snapshot.
+        // last_issued_sequence includes even destroyed/unloaded IDs.
+        // Positions/components must be reattached by the caller.
+        [[nodiscard]] static foundation::Result<World>
+        restore(
+            std::uint64_t world_namespace,
+            std::uint64_t last_issued_sequence,
+            std::span<const EntityId> live_entities);
 
         World(
             const World&) = delete;

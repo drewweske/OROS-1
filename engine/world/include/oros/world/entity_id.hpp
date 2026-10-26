@@ -61,6 +61,13 @@ namespace oros::world
         [[nodiscard]] foundation::Result<EntityId>
         generate();
 
+        // Reconstruct generator state from the persisted global issued
+        // high-water mark (including unloaded and destroyed IDs).
+        [[nodiscard]] static foundation::Result<EntityIdGenerator>
+        resume(
+            std::uint64_t world_namespace,
+            std::uint64_t last_issued_sequence);
+
         [[nodiscard]] std::uint64_t
         world_namespace() const noexcept;
 

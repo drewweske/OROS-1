@@ -249,6 +249,29 @@ namespace oros::world
         };
     }
 
+    foundation::Result<EntityIdGenerator>
+    EntityIdGenerator::resume(
+        const std::uint64_t world_namespace,
+        const std::uint64_t last_issued_sequence)
+    {
+        const std::uint64_t maximum =
+            (std::numeric_limits<std::uint64_t>::max)();
+        auto result = create(
+            world_namespace,
+            last_issued_sequence == maximum
+                ? maximum
+                : last_issued_sequence + 1ULL);
+        if (!result.has_value())
+        {
+            return result;
+        }
+        if (last_issued_sequence == maximum)
+        {
+            result->exhausted_ = true;
+        }
+        return result;
+    }
+
     EntityIdGenerator::EntityIdGenerator(
         const std::uint64_t world_namespace,
         const std::uint64_t first_sequence) noexcept
