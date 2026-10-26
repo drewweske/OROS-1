@@ -26,7 +26,7 @@ This file makes the ChatGPT-only development cadence verifiable across sessions.
 | 16 | 2026-10-22 | `31937ea` -> `b527655` | World entity capacity-growth fix, 10,000-entity lifecycle regression and mainline 15-build canonization policy; Windows/MSVC 126/126 CTest passed | Not due |
 | 17 | 2026-10-22 | `b527655` -> `eb73508` | All-distant NPC fast path with strict World/request validation; Windows/MSVC 126/126 CTest passed | Not due |
 | 18 | 2026-10-22 | `eb73508` -> `4c9cf35` | Canonical owned NPC memory batching, invariant tests; exact-SHA Windows CI 126/126 passed | Not due |
-| 19 | 2026-10-26 | `4c9cf35` -> World restoration commit | Reconstruct World-owned live identities from authoritative high-water mark, preserve deleted/nonresident identity gaps and UINT64_MAX exhaustion; new World restore CTest | Not due |
+| 19 | 2026-10-26 | `4c9cf35` -> `0c17fcf` | Restore existing World entity IDs using authoritative issued-sequence watermark; duplicate/foreign/malformed/overflow rejection, 127th CTest; **exact-SHA Windows 2022/MSVC Debug 127/127 passed**, source inventory 367 files/241 translation units, zero CMake gaps ([PR CI](https://github.com/drewweske/OROS-1/actions/runs/40298447657), [push CI](https://github.com/drewweske/OROS-1/actions/runs/40298439151)). No interactive GPU/Release/large-population benchmark | Not due |
 
 **Latest user command:** #19  
 **Next command:** #20  
